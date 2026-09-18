@@ -1,0 +1,18 @@
+# Build output
+/pd-status-wall
+/dist/
+
+# Runtime data: config.json (contains the API key + password hash) and
+# uploaded logo/banner images. Never commit a real deployment's data.
+/data/
+*.db
+*.db-journal
+
+# Go
+*.test
+*.out
+
+# OS / editor cruft
+.DS_Store
+.idea/
+.vscode/

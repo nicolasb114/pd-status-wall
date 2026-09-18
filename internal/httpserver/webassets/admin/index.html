@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Admin - Status Video Wall</title>
+<link rel="stylesheet" href="/admin/style.css">
+</head>
+<body>
+
+<div id="login-screen" class="login-screen">
+  <form id="login-form" class="login-card">
+    <h1>Status Video Wall</h1>
+    <p class="muted">Sign in to manage settings</p>
+    <label>Username
+      <input type="text" id="login-username" autocomplete="username" required>
+    </label>
+    <label>Password
+      <input type="password" id="login-password" autocomplete="current-password" required>
+    </label>
+    <button type="submit" class="btn btn-primary btn-block">Sign in</button>
+    <p class="error" id="login-error" hidden></p>
+  </form>
+</div>
+
+<div id="app-screen" class="app" hidden>
+  <nav class="sidebar">
+    <div class="brand">Status Video Wall</div>
+    <button class="nav-item" data-tab="connection">PagerDuty Connection</button>
+    <button class="nav-item" data-tab="services">Services &amp; Order</button>
+    <button class="nav-item" data-tab="branding">Branding &amp; Theme</button>
+    <button class="nav-item" data-tab="buttons">Buttons</button>
+    <button class="nav-item" data-tab="security">Security &amp; Network</button>
+    <div class="sidebar-footer">
+      <a href="/" target="_blank" rel="noopener noreferrer" class="nav-link">View display page &#8599;</a>
+      <button id="logout-btn" class="nav-link nav-link-button">Sign out</button>
+    </div>
+  </nav>
+
+  <main class="content">
+    <div id="status-banner" class="status-banner" hidden></div>
+
+    <section class="tab" id="tab-connection">
+      <h2>PagerDuty Connection</h2>
+      <p class="muted">A read-only API key, the PagerDuty region, and which status page to display.</p>
+      <form id="form-pagerduty" class="card">
+        <label>API key / token
+          <div class="input-with-action">
+            <input type="password" id="pd-api-key" placeholder="Leave blank to keep the current key">
+            <button type="button" class="btn btn-ghost" id="toggle-key-visibility">Show</button>
+          </div>
+          <span class="hint" id="pd-api-key-hint"></span>
+        </label>
+        <label>Region
+          <select id="pd-region">
+            <option value="us">US (api.pagerduty.com)</option>
+            <option value="eu">EU (api.eu.pagerduty.com)</option>
+          </select>
+        </label>
+        <label>Poll interval (seconds)
+          <input type="number" id="pd-poll-interval" min="10" value="45">
+        </label>
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary">Save connection</button>
+          <span class="save-indicator" id="save-pagerduty"></span>
+        </div>
+      </form>
+    </section>
+
+    <section class="tab" id="tab-services">
+      <h2>Status Page &amp; Business Services</h2>
+      <p class="muted">Pick the status page to mirror, then set the display order of its business services.</p>
+      <div class="card">
+        <label>Status page
+          <div class="input-with-action">
+            <select id="status-page-select"><option value="">Save a valid API key first...</option></select>
+            <button type="button" class="btn btn-ghost" id="refresh-status-pages">Refresh</button>
+          </div>
+        </label>
+        <div id="service-order-list" class="reorder-list"></div>
+        <div class="form-actions">
+          <button type="button" class="btn btn-primary" id="save-services">Save selection</button>
+          <span class="save-indicator" id="save-services-indicator"></span>
+        </div>
+      </div>
+    </section>
+
+    <section class="tab" id="tab-branding">
+      <h2>Branding &amp; Theme</h2>
+      <div class="card branding-grid">
+        <div class="branding-form">
+          <label>Logo
+            <input type="file" id="logo-file" accept="image/*">
+          </label>
+          <label>Banner image
+            <input type="file" id="banner-file" accept="image/*">
+          </label>
+          <label>Banner fit mode
+            <select id="banner-fit-mode">
+              <option value="contain">Contain (show full image)</option>
+              <option value="cover">Cover (fill banner, may crop)</option>
+            </select>
+          </label>
+          <label>Display mode
+            <select id="theme-mode">
+              <option value="color">Branded color</option>
+              <option value="grayscale">Black &amp; white</option>
+            </select>
+          </label>
+          <label>Primary / accent color
+            <input type="color" id="primary-color" value="#e30000">
+          </label>
+          <label>Text color
+            <input type="color" id="text-color" value="#1a1a1a">
+          </label>
+          <div class="form-actions">
+            <button type="button" class="btn btn-primary" id="save-branding">Save branding</button>
+            <span class="save-indicator" id="save-branding-indicator"></span>
+          </div>
+        </div>
+        <div class="branding-preview">
+          <p class="muted">Live preview</p>
+          <div id="preview-banner" class="preview-banner">
+            <img id="preview-banner-img" hidden alt="">
+            <img id="preview-logo-img" hidden alt="" class="preview-logo">
+          </div>
+          <div id="preview-card" class="preview-card">
+            <span class="preview-dot"></span>
+            <span id="preview-text" class="preview-text">Sample status card</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="tab" id="tab-buttons">
+      <h2>Buttons</h2>
+      <p class="muted">Label + URL pairs shown as buttons on the display page.</p>
+      <div class="card">
+        <div id="buttons-list" class="buttons-list"></div>
+        <button type="button" class="btn btn-ghost" id="add-button">+ Add button</button>
+        <div class="form-actions">
+          <button type="button" class="btn btn-primary" id="save-buttons">Save buttons</button>
+          <span class="save-indicator" id="save-buttons-indicator"></span>
+        </div>
+      </div>
+    </section>
+
+    <section class="tab" id="tab-security">
+      <h2>Security &amp; Network</h2>
+
+      <div class="card">
+        <h3>Change password</h3>
+        <form id="form-password">
+          <label>Current password <input type="password" id="current-password" autocomplete="current-password"></label>
+          <label>New password <input type="password" id="new-password" autocomplete="new-password"></label>
+          <label>Confirm new password <input type="password" id="confirm-password" autocomplete="new-password"></label>
+          <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Update password</button>
+            <span class="save-indicator" id="save-password"></span>
+          </div>
+        </form>
+      </div>
+
+      <div class="card">
+        <h3>IP allowlist (defense-in-depth)</h3>
+        <p class="muted">
+          Restrict access to specific internal CIDR ranges (e.g. <code>10.0.0.0/8</code>).
+          This is a backstop, not a substitute for keeping this host off any
+          internet-facing network - see the README's Network &amp; Security section.
+          Leave empty to allow all sources.
+        </p>
+        <div id="cidr-list" class="reorder-list"></div>
+        <button type="button" class="btn btn-ghost" id="add-cidr">+ Add CIDR range</button>
+        <div class="form-actions">
+          <button type="button" class="btn btn-primary" id="save-network">Save network settings</button>
+          <span class="save-indicator" id="save-network-indicator"></span>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Poller status</h3>
+        <p id="poller-status" class="muted">-</p>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script src="/admin/app.js"></script>
+</body>
+</html>
