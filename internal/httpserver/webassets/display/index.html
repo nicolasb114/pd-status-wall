@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en" data-theme="color">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Status Video Wall</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header class="banner" id="banner">
+    <img id="banner-img" class="banner-img" alt="" hidden>
+    <img id="logo-img" class="logo-img" alt="" hidden>
+  </header>
+
+  <main class="wall">
+    <section class="overall" id="overall">
+      <div class="overall-icon" id="overall-icon" aria-hidden="true"></div>
+      <div class="overall-text">
+        <h1 id="overall-message">Loading status...</h1>
+        <p class="overall-sub" id="status-page-name"></p>
+      </div>
+    </section>
+
+    <section class="cards" id="cards" aria-live="polite"></section>
+
+    <section class="buttons" id="buttons"></section>
+  </main>
+
+  <footer class="foot">
+    <span id="updated-at"></span>
+  </footer>
+
+  <template id="tpl-node">
+    <div class="node">
+      <button class="node-row" type="button">
+        <span class="chevron" aria-hidden="true">&#9656;</span>
+        <span class="status-dot" aria-hidden="true"></span>
+        <span class="node-name"></span>
+        <span class="status-label"></span>
+      </button>
+      <div class="node-children"></div>
+    </div>
+  </template>
+
+  <script src="/app.js"></script>
+</body>
+</html>
