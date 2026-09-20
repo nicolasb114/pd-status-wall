@@ -11,11 +11,17 @@
     impacted: "Impacted",
   };
 
-  var openState = Object.create(null); // node id -> bool, persists across polls
+  // Keyed by tree position (path of ids from the root), not by service id
+  // alone: the same underlying service can legitimately appear under
+  // several different parents (a shared dependency), and each occurrence
+  // should open/close independently rather than all following whichever
+  // one was clicked.
+  var openState = Object.create(null);
 
   function el(sel, root) { return (root || document).querySelector(sel); }
 
-  function renderNode(node, tpl) {
+  function renderNode(node, tpl, parentPath) {
+    var path = (parentPath ? parentPath + "/" : "") + node.id;
     var frag = tpl.content.cloneNode(true);
     var nodeEl = frag.querySelector(".node");
     var row = frag.querySelector(".node-row");
@@ -33,15 +39,15 @@
     if (!hasChildren) {
       nodeEl.classList.add("leaf");
     } else {
-      var isOpen = !!openState[node.id];
+      var isOpen = !!openState[path];
       if (isOpen) nodeEl.classList.add("open");
       row.addEventListener("click", function () {
         var willOpen = !nodeEl.classList.contains("open");
         nodeEl.classList.toggle("open", willOpen);
-        openState[node.id] = willOpen;
+        openState[path] = willOpen;
       });
       node.children.forEach(function (child) {
-        childrenEl.appendChild(renderNode(child, tpl));
+        childrenEl.appendChild(renderNode(child, tpl, path));
       });
     }
     return nodeEl;
@@ -108,7 +114,7 @@
     var tpl = el("#tpl-node");
     container.innerHTML = "";
     (state.services || []).forEach(function (node) {
-      container.appendChild(renderNode(node, tpl));
+      container.appendChild(renderNode(node, tpl, ""));
     });
   }
 

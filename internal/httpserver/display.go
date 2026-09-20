@@ -34,8 +34,20 @@ func adminSub() fs.FS {
 	return sub
 }
 
-var displayFileServer = http.FileServer(http.FS(displaySub()))
-var adminFileServer = http.FileServer(http.FS(adminSub()))
+var displayFileServer = noCacheHandler(http.FileServer(http.FS(displaySub())))
+var adminFileServer = noCacheHandler(http.FileServer(http.FS(adminSub())))
+
+// noCacheHandler prevents browsers from caching the HTML/CSS/JS shell. This
+// app is a long-running local binary that gets upgraded in place; without
+// this, a browser tab left open across an upgrade (or even just revisited
+// later) can keep serving a stale cached page indefinitely, which looks
+// exactly like the fix "didn't take."
+func noCacheHandler(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "no-store")
+		next.ServeHTTP(w, r)
+	})
+}
 
 // handleDisplay serves the video wall page and its static assets (CSS/JS)
 // from the same route tree - no login required, per spec.
