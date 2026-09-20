@@ -169,7 +169,7 @@ func buildTree(ctx context.Context, client *Client, topLevel []StatusPageService
 		}
 		deps[key] = rels
 		for _, r := range rels {
-			cid, ckind := r.SupportingService.ID, r.SupportingService.Type
+			cid, ckind := r.SupportingService.ID, normalizeKind(r.SupportingService.Type)
 			if cid == "" {
 				continue
 			}
@@ -226,8 +226,15 @@ func buildTree(ctx context.Context, client *Client, topLevel []StatusPageService
 		svc[id] = s
 	}
 
-	var build func(kind, id, fallbackName string) model.Node
-	build = func(kind, id, fallbackName string) model.Node {
+	// build renders a node and recurses into its children, tracking the
+	// chain of ancestors currently being built so a cycle in the
+	// dependency graph (a service that, directly or indirectly, depends on
+	// one of its own ancestors) gets cut instead of recursing forever. The
+	// same node legitimately appearing under multiple different parents
+	// (shared dependency, not a cycle) is unaffected, since the ancestor
+	// set is per-branch, not global.
+	var build func(kind, id, fallbackName string, ancestors map[string]bool) model.Node
+	build = func(kind, id, fallbackName string, ancestors map[string]bool) model.Node {
 		node := model.Node{ID: id, Kind: kind}
 		if kind == "business_service" {
 			node.Name = bsName[id]
@@ -247,9 +254,16 @@ func buildTree(ctx context.Context, client *Client, topLevel []StatusPageService
 			}
 			node.Status = mapServiceStatus(s.Status)
 		}
+
+		childAncestors := make(map[string]bool, len(ancestors)+1)
+		for k := range ancestors {
+			childAncestors[k] = true
+		}
+		childAncestors[depKey(kind, id)] = true
+
 		for _, r := range deps[depKey(kind, id)] {
-			cid, ckind := r.SupportingService.ID, r.SupportingService.Type
-			if cid == "" {
+			cid, ckind := r.SupportingService.ID, normalizeKind(r.SupportingService.Type)
+			if cid == "" || childAncestors[depKey(ckind, cid)] {
 				continue
 			}
 			childName := ""
@@ -258,16 +272,26 @@ func buildTree(ctx context.Context, client *Client, topLevel []StatusPageService
 			} else {
 				childName = svc[cid].Name
 			}
-			node.Children = append(node.Children, build(ckind, cid, childName))
+			node.Children = append(node.Children, build(ckind, cid, childName, childAncestors))
 		}
 		return node
 	}
 
 	result := make([]model.Node, 0, len(topLevel))
 	for _, s := range topLevel {
-		result = append(result, build("business_service", s.BusinessService.ID, s.Name))
+		result = append(result, build("business_service", s.BusinessService.ID, s.Name, map[string]bool{}))
 	}
 	return result, nil
+}
+
+// normalizeKind maps PagerDuty's reference type strings (which use a
+// "_reference" suffix on embedded objects, e.g. "business_service_reference",
+// "service_reference") onto the two kinds this app distinguishes internally.
+func normalizeKind(apiType string) string {
+	if strings.HasPrefix(apiType, "business_service") {
+		return "business_service"
+	}
+	return "service"
 }
 
 func mapServiceStatus(pdStatus string) model.Status {
