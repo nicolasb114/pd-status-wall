@@ -106,7 +106,7 @@ html[data-theme="grayscale"] {
 
 .cards {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
   gap: clamp(12px, 1.6vw, 24px);
 }
 
@@ -184,6 +184,13 @@ html[data-theme="grayscale"] {
 
 .node-name {
   flex: 1 1 auto;
+  min-width: 90px; /* small guaranteed floor: without this, at extreme
+                       widths the flex algorithm can shrink this to 0 and
+                       the text overflows its own box onto the badge
+                       instead of wrapping. Still shrinks well below its
+                       longest word's natural width so the fixed-width
+                       badge never gets pushed off the card and clipped. */
+  overflow-wrap: anywhere;
   font-weight: 600;
   font-size: clamp(16px, 1.6vw, 22px);
 }
