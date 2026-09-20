@@ -76,6 +76,13 @@
     var msg = el("#overall-message");
     var sub = el("#status-page-name");
 
+    if (!state.overall) {
+      // The poller hasn't completed its first cycle yet (a brief race
+      // right at cold start) - keep whatever placeholder/last-good text
+      // is already on screen rather than flashing a blank message.
+      return;
+    }
+
     overallEl.dataset.status = state.overall;
     icon.textContent = state.overall === "operational" ? "✓" : "!";
     msg.textContent = state.overall_message;
@@ -109,6 +116,7 @@
     if (!iso) return "";
     try {
       var d = new Date(iso);
+      if (d.getFullYear() < 1971) return ""; // zero-value time - no successful poll yet
       return "Last updated " + d.toLocaleTimeString();
     } catch (e) {
       return "";

@@ -239,3 +239,31 @@ html[data-theme="grayscale"] {
   color: var(--muted);
   font-size: 12px;
 }
+
+/* Admin entry point: a small, faded corner icon rather than a visible
+   banner/button-row element, so it doesn't compete for attention on a
+   video wall. Brightens on hover/focus for whoever's actually at a
+   keyboard in front of it. */
+.admin-link {
+  position: fixed;
+  right: 14px;
+  bottom: 14px;
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.06);
+  color: var(--muted);
+  font-size: 18px;
+  text-decoration: none;
+  opacity: 0.35;
+  transition: opacity var(--transition), background var(--transition);
+}
+.admin-link:hover,
+.admin-link:focus-visible {
+  opacity: 1;
+  background: rgba(0, 0, 0, 0.1);
+  outline: none;
+}
