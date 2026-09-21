@@ -113,6 +113,28 @@
           <label>Text color
             <input type="color" id="text-color" value="#1a1a1a">
           </label>
+          <label>Status banner alignment
+            <select id="overall-align">
+              <option value="left">Left-aligned</option>
+              <option value="center">Centered</option>
+            </select>
+          </label>
+          <label>Status banner size
+            <select id="overall-size">
+              <option value="small">Small</option>
+              <option value="medium">Medium</option>
+              <option value="large">Large</option>
+              <option value="xlarge">Extra large</option>
+            </select>
+          </label>
+          <label>Status banner font
+            <select id="font-family">
+              <option value="system">System default</option>
+              <option value="rounded">Rounded</option>
+              <option value="serif">Classic serif</option>
+              <option value="monospace">Monospace</option>
+            </select>
+          </label>
           <div class="form-actions">
             <button type="button" class="btn btn-primary" id="save-branding">Save branding</button>
             <span class="save-indicator" id="save-branding-indicator"></span>
@@ -127,6 +149,13 @@
           <div id="preview-card" class="preview-card">
             <span class="preview-dot"></span>
             <span id="preview-text" class="preview-text">Sample status card</span>
+          </div>
+          <div id="preview-overall" class="preview-overall">
+            <span id="preview-overall-icon" class="preview-overall-icon">&#10003;</span>
+            <div id="preview-overall-text" class="preview-overall-text">
+              <p id="preview-overall-title" class="preview-overall-title">Your Status Page</p>
+              <p id="preview-overall-sub" class="preview-overall-sub">Everything is running smoothly</p>
+            </div>
           </div>
         </div>
       </div>

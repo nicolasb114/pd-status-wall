@@ -102,6 +102,9 @@
     $("#theme-mode").value = cfg.theme_mode || "color";
     $("#primary-color").value = cfg.primary_color || "#e30000";
     $("#text-color").value = cfg.text_color || "#1a1a1a";
+    $("#overall-align").value = cfg.overall_align || "left";
+    $("#overall-size").value = cfg.overall_size || "medium";
+    $("#font-family").value = cfg.font_family || "system";
     updatePreview();
 
     renderButtons(cfg.buttons || []);
@@ -274,9 +277,17 @@
     $(".preview-dot", preview).style.background = primary;
     $("#preview-banner").style.filter = isGray ? "grayscale(100%)" : "none";
     preview.style.filter = isGray ? "grayscale(100%)" : "none";
+
+    var overallPreview = $("#preview-overall");
+    overallPreview.style.setProperty("--primary", primary);
+    overallPreview.style.setProperty("--pv-text", text);
+    overallPreview.dataset.align = $("#overall-align").value;
+    overallPreview.dataset.size = $("#overall-size").value;
+    overallPreview.dataset.font = $("#font-family").value;
+    overallPreview.style.filter = isGray ? "grayscale(100%)" : "none";
   }
 
-  ["primary-color", "text-color", "theme-mode", "banner-fit-mode"].forEach(function (id) {
+  ["primary-color", "text-color", "theme-mode", "banner-fit-mode", "overall-align", "overall-size", "font-family"].forEach(function (id) {
     $("#" + id).addEventListener("input", updatePreview);
   });
 
@@ -311,6 +322,9 @@
         theme_mode: $("#theme-mode").value,
         primary_color: $("#primary-color").value,
         text_color: $("#text-color").value,
+        overall_align: $("#overall-align").value,
+        overall_size: $("#overall-size").value,
+        font_family: $("#font-family").value,
       }),
     })
       .then(function () { flash(indicator, true); })

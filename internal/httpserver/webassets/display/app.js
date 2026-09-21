@@ -79,8 +79,12 @@
   function applyOverall(state) {
     var overallEl = el("#overall");
     var icon = el("#overall-icon");
-    var msg = el("#overall-message");
-    var sub = el("#status-page-name");
+    var title = el("#page-title");
+    var sub = el("#overall-message");
+
+    overallEl.dataset.align = state.overall_align === "center" ? "center" : "left";
+    overallEl.dataset.size = state.overall_size || "medium";
+    overallEl.dataset.font = state.font_family || "system";
 
     if (!state.overall) {
       // The poller hasn't completed its first cycle yet (a brief race
@@ -91,8 +95,10 @@
 
     overallEl.dataset.status = state.overall;
     icon.textContent = state.overall === "operational" ? "✓" : "!";
-    msg.textContent = state.overall_message;
-    sub.textContent = state.status_page_name || "";
+    // The status page's own name is the prominent headline; the generic
+    // smoothly-running/impacted message is the small line underneath.
+    title.textContent = state.status_page_name || "Status";
+    sub.textContent = state.overall_message;
   }
 
   function applyButtons(state) {

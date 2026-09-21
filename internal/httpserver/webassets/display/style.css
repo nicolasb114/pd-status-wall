@@ -76,6 +76,14 @@ html[data-theme="grayscale"] {
 .overall[data-status="operational"] { border-color: var(--op-color); }
 .overall[data-status="impacted"] { border-color: var(--crit-color); }
 .overall[data-status="unconfigured"] { border-color: var(--border); }
+.overall[data-align="center"] {
+  flex-direction: column;
+  text-align: center;
+}
+
+.overall[data-font="rounded"] { font-family: Verdana, Geneva, Tahoma, sans-serif; }
+.overall[data-font="serif"] { font-family: Georgia, "Times New Roman", Times, serif; }
+.overall[data-font="monospace"] { font-family: "Courier New", Courier, monospace; }
 
 .overall-icon {
   flex: 0 0 auto;
@@ -102,6 +110,32 @@ html[data-theme="grayscale"] {
   margin: 6px 0 0;
   color: var(--muted);
   font-size: clamp(14px, 1.4vw, 20px);
+}
+
+/* Status banner size presets, set from the admin panel. "medium" is the
+   default above; these override it. */
+.overall[data-size="small"] .overall-text h1 { font-size: clamp(20px, 3vw, 32px); }
+.overall[data-size="small"] .overall-sub { font-size: clamp(12px, 1.2vw, 16px); }
+.overall[data-size="small"] .overall-icon {
+  width: clamp(44px, 4.5vw, 64px);
+  height: clamp(44px, 4.5vw, 64px);
+  font-size: clamp(22px, 2.2vw, 32px);
+}
+
+.overall[data-size="large"] .overall-text h1 { font-size: clamp(36px, 5vw, 64px); }
+.overall[data-size="large"] .overall-sub { font-size: clamp(16px, 1.6vw, 24px); }
+.overall[data-size="large"] .overall-icon {
+  width: clamp(64px, 7vw, 96px);
+  height: clamp(64px, 7vw, 96px);
+  font-size: clamp(32px, 3.4vw, 48px);
+}
+
+.overall[data-size="xlarge"] .overall-text h1 { font-size: clamp(44px, 6.5vw, 84px); }
+.overall[data-size="xlarge"] .overall-sub { font-size: clamp(18px, 1.9vw, 28px); }
+.overall[data-size="xlarge"] .overall-icon {
+  width: clamp(72px, 8.5vw, 120px);
+  height: clamp(72px, 8.5vw, 120px);
+  font-size: clamp(36px, 4vw, 60px);
 }
 
 .cards {
@@ -241,11 +275,17 @@ html[data-theme="grayscale"] {
 .wall-button:hover { filter: brightness(1.08); }
 
 .foot {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 10px;
   text-align: center;
-  padding: 10px;
   color: var(--muted);
   font-size: 12px;
+  opacity: 0.6;
+  pointer-events: none;
 }
+.foot:empty { display: none; }
 
 /* Admin entry point: a small, faded corner icon rather than a visible
    banner/button-row element, so it doesn't compete for attention on a
