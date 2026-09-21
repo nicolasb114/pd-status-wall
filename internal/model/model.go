@@ -47,6 +47,9 @@ type Config struct {
 	ThemeMode     string `json:"theme_mode"`      // "color" | "grayscale"
 	PrimaryColor  string `json:"primary_color"`
 	TextColor     string `json:"text_color"`
+	OverallAlign  string `json:"overall_align"` // "left" | "center" - the top status banner's text/icon
+	OverallSize   string `json:"overall_size"`  // "small" | "medium" | "large" | "xlarge"
+	FontFamily    string `json:"font_family"`   // "system" | "rounded" | "serif" | "monospace"
 
 	// Buttons row
 	Buttons []Button `json:"buttons"`
@@ -67,6 +70,9 @@ func DefaultConfig() Config {
 		ThemeMode:           "color",
 		PrimaryColor:        "#e30000",
 		TextColor:           "#1a1a1a",
+		OverallAlign:        "left",
+		OverallSize:         "medium",
+		FontFamily:          "system",
 		Buttons:             []Button{},
 		CIDRAllowlist:       []string{},
 	}

@@ -88,11 +88,23 @@ type adminConfigView struct {
 	ThemeMode           string         `json:"theme_mode"`
 	PrimaryColor        string         `json:"primary_color"`
 	TextColor           string         `json:"text_color"`
+	OverallAlign        string         `json:"overall_align"`
+	OverallSize         string         `json:"overall_size"`
+	FontFamily          string         `json:"font_family"`
 	Buttons             []model.Button `json:"buttons"`
 	CIDRAllowlist       []string       `json:"cidr_allowlist"`
 	LastPollOK          bool           `json:"last_poll_ok"`
 	LastPollAt          string         `json:"last_poll_at,omitempty"`
 	LastError           string         `json:"last_error,omitempty"`
+}
+
+// orDefault returns fallback when v is empty - used so a config.json
+// written before a field existed still gets a sane value instead of "".
+func orDefault(v, fallback string) string {
+	if v == "" {
+		return fallback
+	}
+	return v
 }
 
 func maskSecret(s string) string {
@@ -123,6 +135,9 @@ func (s *Server) handleGetConfig(w http.ResponseWriter, r *http.Request) {
 		ThemeMode:           cfg.ThemeMode,
 		PrimaryColor:        cfg.PrimaryColor,
 		TextColor:           cfg.TextColor,
+		OverallAlign:        orDefault(cfg.OverallAlign, "left"),
+		OverallSize:         orDefault(cfg.OverallSize, "medium"),
+		FontFamily:          orDefault(cfg.FontFamily, "system"),
 		Buttons:             cfg.Buttons,
 		CIDRAllowlist:       cfg.CIDRAllowlist,
 		LastPollOK:          snap.LastPollOK,
@@ -246,12 +261,23 @@ func (s *Server) handleSaveServiceSelection(w http.ResponseWriter, r *http.Reque
 
 // --- Branding ---
 
+var allowedFontFamilies = map[string]bool{
+	"system": true, "rounded": true, "serif": true, "monospace": true,
+}
+
+var allowedOverallSizes = map[string]bool{
+	"small": true, "medium": true, "large": true, "xlarge": true,
+}
+
 func (s *Server) handleSaveBranding(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		BannerFitMode string `json:"banner_fit_mode"`
 		ThemeMode     string `json:"theme_mode"`
 		PrimaryColor  string `json:"primary_color"`
 		TextColor     string `json:"text_color"`
+		OverallAlign  string `json:"overall_align"`
+		OverallSize   string `json:"overall_size"`
+		FontFamily    string `json:"font_family"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
@@ -265,9 +291,24 @@ func (s *Server) handleSaveBranding(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "theme_mode must be 'color' or 'grayscale'")
 		return
 	}
+	if body.OverallAlign != "left" && body.OverallAlign != "center" {
+		writeError(w, http.StatusBadRequest, "overall_align must be 'left' or 'center'")
+		return
+	}
+	if !allowedOverallSizes[body.OverallSize] {
+		writeError(w, http.StatusBadRequest, "overall_size must be one of: small, medium, large, xlarge")
+		return
+	}
+	if !allowedFontFamilies[body.FontFamily] {
+		writeError(w, http.StatusBadRequest, "font_family must be one of: system, rounded, serif, monospace")
+		return
+	}
 	err := s.store.Update(func(cfg *model.Config) {
 		cfg.BannerFitMode = body.BannerFitMode
 		cfg.ThemeMode = body.ThemeMode
+		cfg.OverallAlign = body.OverallAlign
+		cfg.OverallSize = body.OverallSize
+		cfg.FontFamily = body.FontFamily
 		if body.PrimaryColor != "" {
 			cfg.PrimaryColor = body.PrimaryColor
 		}

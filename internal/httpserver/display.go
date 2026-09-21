@@ -96,6 +96,9 @@ type displayState struct {
 	ThemeMode      string         `json:"theme_mode"`
 	PrimaryColor   string         `json:"primary_color"`
 	TextColor      string         `json:"text_color"`
+	OverallAlign   string         `json:"overall_align"`
+	OverallSize    string         `json:"overall_size"`
+	FontFamily     string         `json:"font_family"`
 	Buttons        []publicButton `json:"buttons"`
 }
 
@@ -113,6 +116,9 @@ func (s *Server) handleState(w http.ResponseWriter, r *http.Request) {
 		ThemeMode:      cfg.ThemeMode,
 		PrimaryColor:   cfg.PrimaryColor,
 		TextColor:      cfg.TextColor,
+		OverallAlign:   orDefault(cfg.OverallAlign, "left"),
+		OverallSize:    orDefault(cfg.OverallSize, "medium"),
+		FontFamily:     orDefault(cfg.FontFamily, "system"),
 		Buttons:        []publicButton{},
 	}
 	if state.Services == nil {
