@@ -77,28 +77,28 @@ func (p *Poller) pollAndStore(ctx context.Context) {
 func (p *Poller) poll(ctx context.Context, cfg model.Config) (model.Snapshot, error) {
 	client := NewClient(cfg.PDAPIKey, Region(cfg.PDRegion))
 
-	topLevel, err := client.ListStatusPageServices(ctx, cfg.StatusPageID)
+	pageServices, err := client.ListStatusPageServices(ctx, cfg.StatusPageID)
 	if err != nil {
 		return model.Snapshot{}, fmt.Errorf("list status page services: %w", err)
 	}
-	topLevel = applyOrder(topLevel, cfg.ServiceOrder)
+	pageServices = applyOrder(pageServices, cfg.ServiceOrder)
 
-	services, err := buildTree(ctx, client, topLevel)
+	services, err := buildServices(ctx, client, pageServices, cfg.ShowSubServices)
 	if err != nil {
 		return model.Snapshot{}, err
 	}
+	top := applyGroups(services, cfg.ServiceGroups)
 
-	overall := model.StatusOperational
-	var impacted []string
-	for _, n := range services {
-		if n.Status == model.StatusImpacted {
-			overall = model.StatusImpacted
-			impacted = append(impacted, n.Name)
+	overall := model.WorstStatus(top)
+	var degraded []string
+	for _, n := range top {
+		if n.Status != model.StatusOperational {
+			degraded = append(degraded, n.Name)
 		}
 	}
 	message := "Everything is running smoothly"
-	if overall == model.StatusImpacted {
-		message = "Impacted: " + strings.Join(impacted, ", ")
+	if len(degraded) > 0 {
+		message = "Impacted: " + strings.Join(degraded, ", ")
 	}
 
 	return model.Snapshot{
@@ -106,23 +106,23 @@ func (p *Poller) poll(ctx context.Context, cfg model.Config) (model.Snapshot, er
 		Overall:        overall,
 		OverallMessage: message,
 		StatusPageName: cfg.StatusPageName,
-		Services:       services,
+		Services:       top,
 	}, nil
 }
 
-// applyOrder reorders topLevel per the admin-configured business service
-// order. Services not present in the configured order keep their natural
-// (API-returned) relative order at the end.
-func applyOrder(topLevel []StatusPageService, order []string) []StatusPageService {
+// applyOrder reorders pageServices per the admin-configured business
+// service order. Services not present in the configured order keep their
+// natural (API-returned) relative order at the end.
+func applyOrder(pageServices []StatusPageService, order []string) []StatusPageService {
 	if len(order) == 0 {
-		return topLevel
+		return pageServices
 	}
 	pos := make(map[string]int, len(order))
 	for i, id := range order {
 		pos[id] = i
 	}
-	sorted := make([]StatusPageService, len(topLevel))
-	copy(sorted, topLevel)
+	sorted := make([]StatusPageService, len(pageServices))
+	copy(sorted, pageServices)
 	sort.SliceStable(sorted, func(i, j int) bool {
 		pi, oki := pos[sorted[i].BusinessService.ID]
 		pj, okj := pos[sorted[j].BusinessService.ID]
@@ -137,156 +137,174 @@ func applyOrder(topLevel []StatusPageService, order []string) []StatusPageServic
 	return sorted
 }
 
-// buildTree walks the dependency graph starting from the business services
-// shown on the status page, producing a generic tree of nodes. Any kind of
-// service (business or technical) can have children of either kind - the
-// same collapsible structure is reused regardless of what the nesting
-// represents (business service -> supporting services, or a single service
-// broken into regional sub-components).
-func buildTree(ctx context.Context, client *Client, topLevel []StatusPageService) ([]model.Node, error) {
-	bsIDs := map[string]bool{}
-	bsName := map[string]string{}
-	svcIDs := map[string]bool{}
-	deps := map[string][]Relationship{} // keyed by "kind:id"
-
-	depKey := func(kind, id string) string { return kind + ":" + id }
-
-	var walk func(kind, id string) error
-	walk = func(kind, id string) error {
-		key := depKey(kind, id)
-		if _, done := deps[key]; done {
-			return nil
-		}
-		var rels []Relationship
-		var err error
-		if kind == "business_service" {
-			rels, err = client.BusinessServiceDependencies(ctx, id)
-		} else {
-			rels, err = client.TechnicalServiceDependencies(ctx, id)
-		}
-		if err != nil {
-			return fmt.Errorf("dependencies for %s %s: %w", kind, id, err)
-		}
-		deps[key] = rels
-		for _, r := range rels {
-			cid, ckind := r.SupportingService.ID, normalizeKind(r.SupportingService.Type)
-			if cid == "" {
-				continue
-			}
-			if ckind == "business_service" {
-				bsIDs[cid] = true
-			} else {
-				svcIDs[cid] = true
-			}
-			if err := walk(ckind, cid); err != nil {
-				return err
-			}
-		}
-		return nil
+// buildServices turns the status page's service entries into display
+// nodes: one node per service shown on the page, in page order, each with
+// its own status.
+//
+// It deliberately does NOT walk PagerDuty's service-dependency graph. That
+// graph is an internal impact-calculation model, not a display hierarchy -
+// walking it produces deep, heavily duplicated trees (the same service
+// appearing under several parents and again as its own entry) that look
+// nothing like the status page it is meant to mirror. When
+// showSubServices is enabled, exactly one level of each service's direct
+// supporting services is added, and no further.
+func buildServices(ctx context.Context, client *Client, pageServices []StatusPageService, showSubServices bool) ([]model.Node, error) {
+	ids := make([]string, 0, len(pageServices))
+	for _, s := range pageServices {
+		ids = append(ids, s.BusinessService.ID)
 	}
 
-	for _, s := range topLevel {
-		bsIDs[s.BusinessService.ID] = true
-		if s.Name != "" {
-			bsName[s.BusinessService.ID] = s.Name
-		}
-		if err := walk("business_service", s.BusinessService.ID); err != nil {
-			return nil, err
-		}
-	}
-
-	// Resolve display names for any business service we don't already have
-	// a name for (nested ones aren't listed directly on the status page).
-	for id := range bsIDs {
-		if _, ok := bsName[id]; ok {
-			continue
-		}
-		bs, err := client.GetBusinessService(ctx, id)
-		if err != nil {
-			return nil, fmt.Errorf("get business service %s: %w", id, err)
-		}
-		bsName[id] = bs.Name
-	}
-
-	allBSIDs := make([]string, 0, len(bsIDs))
-	for id := range bsIDs {
-		allBSIDs = append(allBSIDs, id)
-	}
-	impacted, err := client.BusinessServiceImpacts(ctx, allBSIDs)
+	impacted, err := client.BusinessServiceImpacts(ctx, ids)
 	if err != nil {
 		return nil, fmt.Errorf("business service impacts: %w", err)
 	}
 
-	svc := map[string]Service{}
-	for id := range svcIDs {
-		s, err := client.GetService(ctx, id)
-		if err != nil {
-			return nil, fmt.Errorf("get service %s: %w", id, err)
+	nodes := make([]model.Node, 0, len(pageServices))
+	for _, s := range pageServices {
+		id := s.BusinessService.ID
+		node := model.Node{
+			ID:     id,
+			Name:   s.Name,
+			Kind:   "business_service",
+			Status: model.StatusOperational,
 		}
-		svc[id] = s
+		if impacted[id] {
+			node.Status = model.StatusImpacted
+		}
+
+		if showSubServices {
+			children, err := supportingServices(ctx, client, id, impacted)
+			if err != nil {
+				return nil, err
+			}
+			node.Children = children
+		}
+		nodes = append(nodes, node)
 	}
-
-	// build renders a node and recurses into its children, tracking the
-	// chain of ancestors currently being built so a cycle in the
-	// dependency graph (a service that, directly or indirectly, depends on
-	// one of its own ancestors) gets cut instead of recursing forever. The
-	// same node legitimately appearing under multiple different parents
-	// (shared dependency, not a cycle) is unaffected, since the ancestor
-	// set is per-branch, not global.
-	var build func(kind, id, fallbackName string, ancestors map[string]bool) model.Node
-	build = func(kind, id, fallbackName string, ancestors map[string]bool) model.Node {
-		node := model.Node{ID: id, Kind: kind}
-		if kind == "business_service" {
-			node.Name = bsName[id]
-			if node.Name == "" {
-				node.Name = fallbackName
-			}
-			if impacted[id] {
-				node.Status = model.StatusImpacted
-			} else {
-				node.Status = model.StatusOperational
-			}
-		} else {
-			s := svc[id]
-			node.Name = s.Name
-			if node.Name == "" {
-				node.Name = fallbackName
-			}
-			node.Status = mapServiceStatus(s.Status)
-		}
-
-		childAncestors := make(map[string]bool, len(ancestors)+1)
-		for k := range ancestors {
-			childAncestors[k] = true
-		}
-		childAncestors[depKey(kind, id)] = true
-
-		for _, r := range deps[depKey(kind, id)] {
-			cid, ckind := r.SupportingService.ID, normalizeKind(r.SupportingService.Type)
-			if cid == "" || childAncestors[depKey(ckind, cid)] {
-				continue
-			}
-			childName := ""
-			if ckind == "business_service" {
-				childName = bsName[cid]
-			} else {
-				childName = svc[cid].Name
-			}
-			node.Children = append(node.Children, build(ckind, cid, childName, childAncestors))
-		}
-		return node
-	}
-
-	result := make([]model.Node, 0, len(topLevel))
-	for _, s := range topLevel {
-		result = append(result, build("business_service", s.BusinessService.ID, s.Name, map[string]bool{}))
-	}
-	return result, nil
+	return nodes, nil
 }
 
-// normalizeKind maps PagerDuty's reference type strings (which use a
-// "_reference" suffix on embedded objects, e.g. "business_service_reference",
-// "service_reference") onto the two kinds this app distinguishes internally.
+// supportingServices returns one level of a business service's direct
+// supporting services - no recursion into their own dependencies.
+func supportingServices(ctx context.Context, client *Client, businessServiceID string, impacted map[string]bool) ([]model.Node, error) {
+	rels, err := client.BusinessServiceDependencies(ctx, businessServiceID)
+	if err != nil {
+		return nil, fmt.Errorf("dependencies for business service %s: %w", businessServiceID, err)
+	}
+
+	var children []model.Node
+	var nestedBusinessIDs []string
+	for _, r := range rels {
+		if r.SupportingService.ID == "" {
+			continue
+		}
+		if normalizeKind(r.SupportingService.Type) == "business_service" {
+			nestedBusinessIDs = append(nestedBusinessIDs, r.SupportingService.ID)
+		}
+	}
+
+	// Nested business services need their computed impact status, which
+	// comes from a single batched call rather than one request each.
+	nestedImpacts := map[string]bool{}
+	if len(nestedBusinessIDs) > 0 {
+		nestedImpacts, err = client.BusinessServiceImpacts(ctx, nestedBusinessIDs)
+		if err != nil {
+			return nil, fmt.Errorf("impacts for supporting business services of %s: %w", businessServiceID, err)
+		}
+	}
+
+	for _, r := range rels {
+		ref := r.SupportingService
+		if ref.ID == "" {
+			continue
+		}
+		if normalizeKind(ref.Type) == "business_service" {
+			bs, err := client.GetBusinessService(ctx, ref.ID)
+			if err != nil {
+				return nil, fmt.Errorf("get business service %s: %w", ref.ID, err)
+			}
+			status := model.StatusOperational
+			if nestedImpacts[ref.ID] {
+				status = model.StatusImpacted
+			}
+			children = append(children, model.Node{
+				ID:     ref.ID,
+				Name:   bs.Name,
+				Kind:   "business_service",
+				Status: status,
+			})
+			continue
+		}
+
+		svc, err := client.GetService(ctx, ref.ID)
+		if err != nil {
+			return nil, fmt.Errorf("get service %s: %w", ref.ID, err)
+		}
+		children = append(children, model.Node{
+			ID:     ref.ID,
+			Name:   svc.Name,
+			Kind:   "service",
+			Status: mapServiceStatus(svc.Status),
+		})
+	}
+	return children, nil
+}
+
+// applyGroups folds the flat service list into the admin-defined groups.
+// A group is emitted at the position of its first member, so the existing
+// service ordering also controls where groups land; services belonging to
+// no group stay where they are. A group's status is the worst status
+// among its members.
+func applyGroups(services []model.Node, groups []model.ServiceGroup) []model.Node {
+	if len(groups) == 0 {
+		return services
+	}
+
+	byID := make(map[string]model.Node, len(services))
+	for _, n := range services {
+		byID[n.ID] = n
+	}
+
+	groupOf := make(map[string]int, len(services)) // service ID -> group index
+	for gi, g := range groups {
+		for _, id := range g.Services {
+			if _, ok := byID[id]; ok {
+				groupOf[id] = gi
+			}
+		}
+	}
+
+	emitted := make(map[int]bool, len(groups))
+	out := make([]model.Node, 0, len(services))
+	for _, n := range services {
+		gi, grouped := groupOf[n.ID]
+		if !grouped {
+			out = append(out, n)
+			continue
+		}
+		if emitted[gi] {
+			continue // already rendered as part of its group
+		}
+		emitted[gi] = true
+
+		g := groups[gi]
+		members := make([]model.Node, 0, len(g.Services))
+		for _, id := range g.Services {
+			if member, ok := byID[id]; ok {
+				members = append(members, member)
+			}
+		}
+		out = append(out, model.Node{
+			ID:       "group-" + g.Name,
+			Name:     g.Name,
+			Kind:     "group",
+			Status:   model.WorstStatus(members),
+			Children: members,
+		})
+	}
+	return out
+}
+
 func normalizeKind(apiType string) string {
 	if strings.HasPrefix(apiType, "business_service") {
 		return "business_service"

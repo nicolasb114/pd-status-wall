@@ -31,6 +31,7 @@
     var childrenEl = frag.querySelector(".node-children");
 
     nodeEl.dataset.id = node.id;
+    nodeEl.dataset.kind = node.kind || "";
     name.textContent = node.name;
     dot.dataset.status = node.status;
     label.textContent = STATUS_LABELS[node.status] || node.status;
@@ -39,7 +40,10 @@
     if (!hasChildren) {
       nodeEl.classList.add("leaf");
     } else {
-      var isOpen = !!openState[path];
+      // A group's members are the point of the group, so it starts open;
+      // supporting services underneath a service start collapsed.
+      var defaultOpen = node.kind === "group";
+      var isOpen = openState[path] === undefined ? defaultOpen : !!openState[path];
       if (isOpen) nodeEl.classList.add("open");
       row.addEventListener("click", function () {
         var willOpen = !nodeEl.classList.contains("open");

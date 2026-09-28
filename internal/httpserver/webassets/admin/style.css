@@ -356,3 +356,47 @@ input[type="file"] { border-style: dashed; cursor: pointer; }
   .content { padding: 20px; }
   .branding-grid { grid-template-columns: 1fr; }
 }
+
+/* --- Service groups --- */
+
+.groups-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.group-row {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px;
+  background: #fbfbfe;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.group-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.group-header .group-name { flex: 1; font-weight: 600; }
+.group-members {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 6px 14px;
+  padding-left: 2px;
+}
+.checkbox-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--text);
+  cursor: pointer;
+}
+.checkbox-row input[type="checkbox"] {
+  width: auto;
+  margin: 0;
+  cursor: pointer;
+}
