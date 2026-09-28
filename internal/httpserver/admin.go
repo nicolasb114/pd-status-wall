@@ -73,29 +73,31 @@ func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
 // --- Config read (masked) ---
 
 type adminConfigView struct {
-	Authenticated       bool           `json:"authenticated"`
-	PDAPIKeySet         bool           `json:"pd_api_key_set"`
-	PDAPIKeyMasked      string         `json:"pd_api_key_masked"`
-	PDRegion            string         `json:"pd_region"`
-	StatusPageID        string         `json:"status_page_id"`
-	StatusPageName      string         `json:"status_page_name"`
-	ServiceOrder        []string       `json:"service_order"`
-	PollIntervalSeconds int            `json:"poll_interval_seconds"`
-	AdminUsername       string         `json:"admin_username"`
-	LogoURL             string         `json:"logo_url,omitempty"`
-	BannerURL           string         `json:"banner_url,omitempty"`
-	BannerFitMode       string         `json:"banner_fit_mode"`
-	ThemeMode           string         `json:"theme_mode"`
-	PrimaryColor        string         `json:"primary_color"`
-	TextColor           string         `json:"text_color"`
-	OverallAlign        string         `json:"overall_align"`
-	OverallSize         string         `json:"overall_size"`
-	FontFamily          string         `json:"font_family"`
-	Buttons             []model.Button `json:"buttons"`
-	CIDRAllowlist       []string       `json:"cidr_allowlist"`
-	LastPollOK          bool           `json:"last_poll_ok"`
-	LastPollAt          string         `json:"last_poll_at,omitempty"`
-	LastError           string         `json:"last_error,omitempty"`
+	Authenticated       bool                 `json:"authenticated"`
+	PDAPIKeySet         bool                 `json:"pd_api_key_set"`
+	PDAPIKeyMasked      string               `json:"pd_api_key_masked"`
+	PDRegion            string               `json:"pd_region"`
+	StatusPageID        string               `json:"status_page_id"`
+	StatusPageName      string               `json:"status_page_name"`
+	ServiceOrder        []string             `json:"service_order"`
+	ServiceGroups       []model.ServiceGroup `json:"service_groups"`
+	ShowSubServices     bool                 `json:"show_sub_services"`
+	PollIntervalSeconds int                  `json:"poll_interval_seconds"`
+	AdminUsername       string               `json:"admin_username"`
+	LogoURL             string               `json:"logo_url,omitempty"`
+	BannerURL           string               `json:"banner_url,omitempty"`
+	BannerFitMode       string               `json:"banner_fit_mode"`
+	ThemeMode           string               `json:"theme_mode"`
+	PrimaryColor        string               `json:"primary_color"`
+	TextColor           string               `json:"text_color"`
+	OverallAlign        string               `json:"overall_align"`
+	OverallSize         string               `json:"overall_size"`
+	FontFamily          string               `json:"font_family"`
+	Buttons             []model.Button       `json:"buttons"`
+	CIDRAllowlist       []string             `json:"cidr_allowlist"`
+	LastPollOK          bool                 `json:"last_poll_ok"`
+	LastPollAt          string               `json:"last_poll_at,omitempty"`
+	LastError           string               `json:"last_error,omitempty"`
 }
 
 // orDefault returns fallback when v is empty - used so a config.json
@@ -129,6 +131,8 @@ func (s *Server) handleGetConfig(w http.ResponseWriter, r *http.Request) {
 		StatusPageID:        cfg.StatusPageID,
 		StatusPageName:      cfg.StatusPageName,
 		ServiceOrder:        cfg.ServiceOrder,
+		ServiceGroups:       cfg.ServiceGroups,
+		ShowSubServices:     cfg.ShowSubServices,
 		PollIntervalSeconds: cfg.PollIntervalSeconds,
 		AdminUsername:       cfg.AdminUsername,
 		BannerFitMode:       cfg.BannerFitMode,
@@ -154,6 +158,9 @@ func (s *Server) handleGetConfig(w http.ResponseWriter, r *http.Request) {
 	}
 	if view.ServiceOrder == nil {
 		view.ServiceOrder = []string{}
+	}
+	if view.ServiceGroups == nil {
+		view.ServiceGroups = []model.ServiceGroup{}
 	}
 	if view.Buttons == nil {
 		view.Buttons = []model.Button{}
@@ -239,18 +246,44 @@ func (s *Server) handleListStatusPageServices(w http.ResponseWriter, r *http.Req
 
 func (s *Server) handleSaveServiceSelection(w http.ResponseWriter, r *http.Request) {
 	var body struct {
-		StatusPageID   string   `json:"status_page_id"`
-		StatusPageName string   `json:"status_page_name"`
-		ServiceOrder   []string `json:"service_order"`
+		StatusPageID    string               `json:"status_page_id"`
+		StatusPageName  string               `json:"status_page_name"`
+		ServiceOrder    []string             `json:"service_order"`
+		ServiceGroups   []model.ServiceGroup `json:"service_groups"`
+		ShowSubServices bool                 `json:"show_sub_services"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
+
+	// Drop groups with no name and de-duplicate membership: a service can
+	// only belong to one group, otherwise it would render more than once.
+	seen := map[string]bool{}
+	groups := make([]model.ServiceGroup, 0, len(body.ServiceGroups))
+	for _, g := range body.ServiceGroups {
+		g.Name = strings.TrimSpace(g.Name)
+		if g.Name == "" {
+			continue
+		}
+		members := make([]string, 0, len(g.Services))
+		for _, id := range g.Services {
+			if id == "" || seen[id] {
+				continue
+			}
+			seen[id] = true
+			members = append(members, id)
+		}
+		g.Services = members
+		groups = append(groups, g)
+	}
+
 	err := s.store.Update(func(cfg *model.Config) {
 		cfg.StatusPageID = body.StatusPageID
 		cfg.StatusPageName = body.StatusPageName
 		cfg.ServiceOrder = body.ServiceOrder
+		cfg.ServiceGroups = groups
+		cfg.ShowSubServices = body.ShowSubServices
 	})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to save: "+err.Error())

@@ -314,3 +314,25 @@ html[data-theme="grayscale"] {
   background: rgba(0, 0, 0, 0.1);
   outline: none;
 }
+
+/* --- Groups ---
+   A group is a heading with its member services beneath it, so it reads as
+   a section rather than as another service row. Members are always shown
+   (the chevron only collapses supporting services, a level deeper). */
+.node[data-kind="group"] > .node-row .node-name {
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  font-size: clamp(14px, 1.3vw, 18px);
+  color: var(--muted);
+}
+.node[data-kind="group"] > .node-children {
+  display: flex;
+  padding-left: clamp(14px, 1.8vw, 22px);
+  padding-right: clamp(14px, 1.8vw, 22px);
+}
+.node[data-kind="group"] > .node-row {
+  padding-bottom: 6px;
+}
+.node[data-kind="group"] > .node-children > .node {
+  background: var(--card-bg);
+}

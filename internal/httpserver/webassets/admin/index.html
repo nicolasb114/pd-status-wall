@@ -78,8 +78,34 @@
           </div>
         </label>
         <div id="service-order-list" class="reorder-list"></div>
+      </div>
+
+      <div class="card">
+        <h3>Groups</h3>
+        <p class="muted">
+          PagerDuty lets you group services when you build a status page, but it
+          doesn't expose those groups through its API - so re-create them here.
+          A group appears at the position of its first member above, and takes
+          the worst status among its services. Services left ungrouped appear on
+          their own.
+        </p>
+        <div id="groups-list" class="groups-list"></div>
+        <button type="button" class="btn btn-ghost" id="add-group">+ Add group</button>
+      </div>
+
+      <div class="card">
+        <h3>Supporting services</h3>
+        <label class="checkbox-row">
+          <input type="checkbox" id="show-sub-services">
+          <span>Show each service's supporting services (one level)</span>
+        </label>
+        <p class="muted">
+          Off by default, matching PagerDuty's own status page. Turning this on
+          adds one expandable level of the directly supporting services beneath
+          each service - useful on a NOC wall to see which component broke.
+        </p>
         <div class="form-actions">
-          <button type="button" class="btn btn-primary" id="save-services">Save selection</button>
+          <button type="button" class="btn btn-primary" id="save-services">Save services &amp; groups</button>
           <span class="save-indicator" id="save-services-indicator"></span>
         </div>
       </div>

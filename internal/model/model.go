@@ -25,6 +25,16 @@ type Button struct {
 	URL   string `json:"url"`
 }
 
+// ServiceGroup is an admin-defined heading that a set of business services
+// is displayed under, mirroring the grouping PagerDuty lets you configure
+// in its own Status Page editor. That grouping is not exposed anywhere in
+// PagerDuty's REST API (no field, no endpoint - only the rendered public
+// status page's embedded state has it), so it is re-entered here instead.
+type ServiceGroup struct {
+	Name     string   `json:"name"`
+	Services []string `json:"services"` // business service IDs, in display order
+}
+
 // Config is the full persisted application configuration. It is stored as a
 // single JSON file with 0600 permissions (see internal/store).
 type Config struct {
@@ -35,6 +45,15 @@ type Config struct {
 	StatusPageName      string   `json:"status_page_name"`
 	ServiceOrder        []string `json:"service_order"` // business_service IDs, display order
 	PollIntervalSeconds int      `json:"poll_interval_seconds"`
+
+	// Display grouping. A group is rendered at the position of its first
+	// member in ServiceOrder; services in no group render standalone.
+	ServiceGroups []ServiceGroup `json:"service_groups"`
+	// ShowSubServices adds one level of each business service's direct
+	// supporting services underneath it. Off by default: PagerDuty's own
+	// status page doesn't show them, and the full dependency graph is an
+	// internal impact-calculation model, not a display hierarchy.
+	ShowSubServices bool `json:"show_sub_services"`
 
 	// Admin auth
 	AdminUsername     string `json:"admin_username"`
@@ -74,19 +93,51 @@ func DefaultConfig() Config {
 		OverallSize:         "medium",
 		FontFamily:          "system",
 		Buttons:             []Button{},
+		ServiceGroups:       []ServiceGroup{},
 		CIDRAllowlist:       []string{},
 	}
 }
 
-// Node is a single row in the display page's tree: a business service or a
-// technical service, optionally with children of either kind. The display
-// page renders this generically regardless of what the nesting represents.
+// Node is a single row on the display page. The tree is at most three
+// levels deep: an optional admin-defined group, the business services on
+// the status page, and (when enabled) one level of supporting services.
 type Node struct {
 	ID       string `json:"id"`
 	Name     string `json:"name"`
-	Kind     string `json:"kind"` // "business_service" | "service"
+	Kind     string `json:"kind"` // "group" | "business_service" | "service"
 	Status   Status `json:"status"`
 	Children []Node `json:"children,omitempty"`
+}
+
+// severityRank orders statuses from healthiest to worst, so a group can
+// take the worst status among its members.
+func severityRank(s Status) int {
+	switch s {
+	case StatusOperational:
+		return 0
+	case StatusMaintenance:
+		return 1
+	case StatusDisabled:
+		return 2
+	case StatusWarning:
+		return 3
+	case StatusCritical, StatusImpacted:
+		return 4
+	default:
+		return 0
+	}
+}
+
+// WorstStatus returns the most severe status among the given nodes,
+// defaulting to operational when there are none.
+func WorstStatus(nodes []Node) Status {
+	worst := StatusOperational
+	for _, n := range nodes {
+		if severityRank(n.Status) > severityRank(worst) {
+			worst = n.Status
+		}
+	}
+	return worst
 }
 
 // Snapshot is the current, last-known-good state served at /api/state.

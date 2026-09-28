@@ -127,6 +127,8 @@
 
     window.__savedServiceOrder = cfg.service_order || [];
     window.__savedStatusPageId = cfg.status_page_id || "";
+    window.__savedGroups = cfg.service_groups || [];
+    $("#show-sub-services").checked = !!cfg.show_sub_services;
   }
 
   // --- PagerDuty connection ---
@@ -203,7 +205,11 @@
           if (ib === -1) ib = 999;
           return ia - ib;
         });
+        window.__availableServices = services.map(function (s) {
+          return { id: s.business_service.id, name: s.name };
+        });
         renderServiceOrderList(services);
+        renderGroups(pageId === window.__savedStatusPageId ? window.__savedGroups : []);
       })
       .catch(function (err) {
         list.innerHTML = "<p class=\"error\">" + (err.message || "Failed to load services") + "</p>";
@@ -245,6 +251,107 @@
     }
   }
 
+  // --- Groups ---
+  //
+  // A service may belong to at most one group, so checking it in one group
+  // clears it from any other.
+
+  function renderGroups(groups) {
+    var list = $("#groups-list");
+    list.innerHTML = "";
+    (groups || []).forEach(function (g) { list.appendChild(groupRow(g)); });
+    if (!list.children.length) {
+      list.innerHTML = "<p class=\"muted\">No groups yet - every service shows on its own.</p>";
+    }
+  }
+
+  function groupRow(group) {
+    var services = window.__availableServices || [];
+    var row = document.createElement("div");
+    row.className = "group-row";
+
+    var header = document.createElement("div");
+    header.className = "group-header";
+    var nameInput = document.createElement("input");
+    nameInput.type = "text";
+    nameInput.className = "group-name";
+    nameInput.placeholder = "Group name (e.g. WEB Experience)";
+    nameInput.value = (group && group.name) || "";
+    header.appendChild(nameInput);
+
+    var controls = document.createElement("div");
+    controls.className = "reorder-controls";
+    controls.innerHTML =
+      '<button type="button" class="btn btn-ghost btn-icon" data-move="up">&uarr;</button>' +
+      '<button type="button" class="btn btn-ghost btn-icon" data-move="down">&darr;</button>' +
+      '<button type="button" class="btn btn-danger btn-icon" data-remove="1">&times;</button>';
+    header.appendChild(controls);
+    row.appendChild(header);
+
+    var members = document.createElement("div");
+    members.className = "group-members";
+    services.forEach(function (svc) {
+      var label = document.createElement("label");
+      label.className = "checkbox-row";
+      var cb = document.createElement("input");
+      cb.type = "checkbox";
+      cb.className = "group-member";
+      cb.value = svc.id;
+      cb.checked = !!(group && (group.services || []).indexOf(svc.id) !== -1);
+      var span = document.createElement("span");
+      span.textContent = svc.name;
+      label.appendChild(cb);
+      label.appendChild(span);
+      members.appendChild(label);
+    });
+    row.appendChild(members);
+    return row;
+  }
+
+  $("#add-group").addEventListener("click", function () {
+    var list = $("#groups-list");
+    if (!$(".group-row", list)) list.innerHTML = "";
+    list.appendChild(groupRow(null));
+  });
+
+  $("#groups-list").addEventListener("click", function (e) {
+    var row = e.target.closest(".group-row");
+    if (!row) return;
+    var list = row.parentElement;
+    if (e.target.dataset.remove) {
+      row.remove();
+      if (!$(".group-row", list)) renderGroups([]);
+      return;
+    }
+    if (e.target.dataset.move === "up" && row.previousElementSibling) {
+      list.insertBefore(row, row.previousElementSibling);
+    } else if (e.target.dataset.move === "down" && row.nextElementSibling) {
+      list.insertBefore(row.nextElementSibling, row);
+    }
+  });
+
+  $("#groups-list").addEventListener("change", function (e) {
+    if (!e.target.classList.contains("group-member") || !e.target.checked) return;
+    // Clear this service from every other group.
+    var owner = e.target.closest(".group-row");
+    $all("#groups-list .group-member").forEach(function (cb) {
+      if (cb !== e.target && cb.value === e.target.value && cb.closest(".group-row") !== owner) {
+        cb.checked = false;
+      }
+    });
+  });
+
+  function collectGroups() {
+    return $all("#groups-list .group-row").map(function (row) {
+      return {
+        name: row.querySelector(".group-name").value.trim(),
+        services: $all(".group-member", row)
+          .filter(function (cb) { return cb.checked; })
+          .map(function (cb) { return cb.value; }),
+      };
+    }).filter(function (g) { return g.name !== ""; });
+  }
+
   $("#save-services").addEventListener("click", function () {
     var indicator = $("#save-services-indicator");
     var pageId = $("#status-page-select").value;
@@ -252,13 +359,22 @@
       ? $("#status-page-select").selectedOptions[0].textContent
       : "";
     var order = $all("#service-order-list .reorder-row").map(function (r) { return r.dataset.id; });
+    var groups = collectGroups();
+    var showSub = $("#show-sub-services").checked;
     api("/admin/api/services", {
       method: "POST",
-      body: JSON.stringify({ status_page_id: pageId, status_page_name: pageName, service_order: order }),
+      body: JSON.stringify({
+        status_page_id: pageId,
+        status_page_name: pageName,
+        service_order: order,
+        service_groups: groups,
+        show_sub_services: showSub,
+      }),
     })
       .then(function () {
         window.__savedStatusPageId = pageId;
         window.__savedServiceOrder = order;
+        window.__savedGroups = groups;
         flash(indicator, true);
       })
       .catch(function (err) { flash(indicator, false, err.message); });
