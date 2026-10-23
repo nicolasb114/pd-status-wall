@@ -50,11 +50,28 @@ account's configured threshold.
 
 ## Install
 
-Download a prebuilt binary from the
-[latest release](https://github.com/nicolasb114/pd-status-wall/releases/latest) —
-see [QUICKSTART.md](QUICKSTART.md) for the one-command version, or
-[build from source](#building-from-source) if you'd rather compile it
-yourself.
+On macOS and Linux:
+
+```bash
+brew install nicolasb114/tap/pd-status-wall
+```
+
+Otherwise download a prebuilt binary from the
+[latest release](https://github.com/nicolasb114/pd-status-wall/releases/latest),
+or [build from source](#building-from-source).
+
+macOS and Linux builds ship as `.tar.gz` so the execute bit survives the
+download; the Windows build is a plain `.exe`.
+
+Two things to expect if you download through a browser rather than using
+Homebrew. On macOS the file is quarantined and, because these builds
+aren't notarized by Apple, it won't run until you clear that
+(`xattr -d com.apple.quarantine pd-status-wall`, or **System Settings →
+Privacy & Security → Open Anyway**). On Windows, SmartScreen warns about
+any unrecognized app — **More info → Run anyway**. Installing via
+Homebrew or `curl` avoids the macOS prompt entirely, since neither sets
+the quarantine flag. See [QUICKSTART.md](QUICKSTART.md) for the exact
+commands.
 
 ## Configuration
 
