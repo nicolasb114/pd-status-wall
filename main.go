@@ -8,10 +8,12 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/base64"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
+	"runtime/debug"
 	"syscall"
 	"time"
 
@@ -23,6 +25,10 @@ import (
 	"github.com/nicolasb114/pd-status-wall/internal/store"
 )
 
+// version is set at build time with
+// -ldflags="-X main.version=v1.2.3"; released binaries carry the tag.
+var version = ""
+
 func getenv(key, fallback string) string {
 	if v := os.Getenv(key); v != "" {
 		return v
@@ -30,7 +36,52 @@ func getenv(key, fallback string) string {
 	return fallback
 }
 
+// buildVersion prefers the version stamped at build time, falling back to
+// whatever the Go toolchain recorded (set for `go install`-ed builds).
+func buildVersion() string {
+	if version != "" {
+		return version
+	}
+	if info, ok := debug.ReadBuildInfo(); ok && info.Main.Version != "" {
+		return info.Main.Version
+	}
+	return "dev"
+}
+
+func printUsage() {
+	fmt.Print(`pd-status-wall - a status video wall for PagerDuty Business Services
+
+Usage:
+  pd-status-wall              start the server
+  pd-status-wall --version    print the version
+  pd-status-wall --help       print this message
+
+Everything else is configured from the admin panel or these environment
+variables:
+
+  DATA_DIR               where config and uploads live   (default ./data)
+  LISTEN_ADDR            address to bind                 (default 0.0.0.0:8080)
+  TLS_CERT_FILE          serve HTTPS with this cert      (optional)
+  TLS_KEY_FILE           serve HTTPS with this key       (optional)
+  RESET_ADMIN_PASSWORD   set to "true" to generate a new admin password
+
+Once running, the video wall is at / and the admin panel at /admin.
+Docs: https://github.com/nicolasb114/pd-status-wall
+`)
+}
+
 func main() {
+	for _, arg := range os.Args[1:] {
+		switch arg {
+		case "--version", "-version", "-v":
+			fmt.Printf("pd-status-wall %s\n", buildVersion())
+			return
+		case "--help", "-help", "-h":
+			printUsage()
+			return
+		}
+	}
+
 	dataDir := getenv("DATA_DIR", "./data")
 	listenAddr := getenv("LISTEN_ADDR", "0.0.0.0:8080")
 	tlsCertFile := os.Getenv("TLS_CERT_FILE")

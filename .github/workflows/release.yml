@@ -49,12 +49,30 @@ jobs:
           GOARCH: ${{ matrix.goarch }}
           CGO_ENABLED: 0
         run: |
-          go build -trimpath -ldflags="-s -w" -o "dist/${{ matrix.asset }}" .
+          mkdir -p build dist
+          # The binary is always named pd-status-wall inside the archive;
+          # the archive filename carries the platform.
+          bin="pd-status-wall"
+          if [ "${{ matrix.goos }}" = "windows" ]; then bin="pd-status-wall.exe"; fi
+          go build -trimpath \
+            -ldflags="-s -w -X main.version=${GITHUB_REF_NAME}" \
+            -o "build/${bin}" .
+
+          # macOS and Linux ship as .tar.gz, which preserves the execute
+          # bit - a bare binary downloaded over HTTP arrives without it and
+          # won't run until the user remembers chmod +x. Windows has no
+          # execute bit, so the .exe ships as-is and stays one click.
+          if [ "${{ matrix.goos }}" = "windows" ]; then
+            cp "build/${bin}" "dist/${{ matrix.asset }}"
+          else
+            tar -czf "dist/${{ matrix.asset }}.tar.gz" -C build "${bin}"
+          fi
+          ls -l dist
 
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.asset }}
-          path: dist/${{ matrix.asset }}
+          path: dist/*
 
   release:
     needs: build
@@ -64,6 +82,12 @@ jobs:
         with:
           path: dist
           merge-multiple: true
+
+      - name: Checksums
+        run: |
+          cd dist
+          sha256sum * > SHA256SUMS
+          cat SHA256SUMS
 
       - name: Publish release
         uses: softprops/action-gh-release@v2
