@@ -16,17 +16,26 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
+        # "asset" is what people actually see on the Releases page, so it
+        # says which machine the file is for rather than repeating Go's
+        # GOOS/GOARCH names ("amd64" reads as AMD-only and "darwin" as
+        # anything but macOS, which is exactly the wrong guess).
         include:
           - goos: linux
             goarch: amd64
+            asset: pd-status-wall-linux-x86-64
           - goos: linux
             goarch: arm64
+            asset: pd-status-wall-linux-arm64
           - goos: darwin
             goarch: amd64
+            asset: pd-status-wall-macos-intel
           - goos: darwin
             goarch: arm64
+            asset: pd-status-wall-macos-apple-silicon
           - goos: windows
             goarch: amd64
+            asset: pd-status-wall-windows.exe
     steps:
       - uses: actions/checkout@v4
 
@@ -40,16 +49,12 @@ jobs:
           GOARCH: ${{ matrix.goarch }}
           CGO_ENABLED: 0
         run: |
-          ext=""
-          if [ "${{ matrix.goos }}" = "windows" ]; then ext=".exe"; fi
-          out="pd-status-wall-${{ matrix.goos }}-${{ matrix.goarch }}${ext}"
-          go build -trimpath -ldflags="-s -w" -o "dist/${out}" .
-          echo "ARTIFACT=dist/${out}" >> "$GITHUB_ENV"
+          go build -trimpath -ldflags="-s -w" -o "dist/${{ matrix.asset }}" .
 
       - uses: actions/upload-artifact@v4
         with:
-          name: pd-status-wall-${{ matrix.goos }}-${{ matrix.goarch }}
-          path: ${{ env.ARTIFACT }}
+          name: ${{ matrix.asset }}
+          path: dist/${{ matrix.asset }}
 
   release:
     needs: build

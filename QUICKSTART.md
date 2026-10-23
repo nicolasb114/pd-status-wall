@@ -18,13 +18,18 @@
 1. Open the [latest release](https://github.com/nicolasb114/pd-status-wall/releases/latest).
 2. Download the file matching your machine:
 
-   | Platform | File |
+   | Your machine | File |
    |---|---|
-   | Linux (Intel/AMD) | `pd-status-wall-linux-amd64` |
-   | Linux (ARM) | `pd-status-wall-linux-arm64` |
-   | Mac (Apple Silicon) | `pd-status-wall-darwin-arm64` |
-   | Mac (Intel) | `pd-status-wall-darwin-amd64` |
-   | Windows | `pd-status-wall-windows-amd64.exe` |
+   | Mac with an Apple chip (M1/M2/M3/M4) | `pd-status-wall-macos-apple-silicon` |
+   | Mac with an Intel chip | `pd-status-wall-macos-intel` |
+   | Linux (most servers and PCs) | `pd-status-wall-linux-x86-64` |
+   | Linux on ARM (Raspberry Pi, Graviton) | `pd-status-wall-linux-arm64` |
+   | Windows | `pd-status-wall-windows.exe` |
+
+   Not sure which Mac you have?  &rarr; About This Mac. If it says
+   "Chip: Apple M…" pick Apple Silicon; if it says "Processor: Intel…"
+   pick Intel. (From a terminal: `uname -m` prints `arm64` for Apple
+   chips, `x86_64` for Intel.)
 
 3. Make it runnable and start it:
 
