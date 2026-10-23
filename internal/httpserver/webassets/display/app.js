@@ -28,7 +28,7 @@
     var dot = frag.querySelector(".status-dot");
     var name = frag.querySelector(".node-name");
     var label = frag.querySelector(".status-label");
-    var childrenEl = frag.querySelector(".node-children");
+    var childrenEl = frag.querySelector(".node-children-inner");
 
     nodeEl.dataset.id = node.id;
     nodeEl.dataset.kind = node.kind || "";
@@ -57,11 +57,59 @@
     return nodeEl;
   }
 
+  // Scheme backgrounds, kept in step with the tokens in style.css. Used
+  // only to judge whether a configured text colour is readable on them.
+  var SCHEME_BG = { light: "#f4f5f7", dark: "#101114" };
+  var SCHEME_TEXT = { light: "#1a1a1a", dark: "#eceef2" };
+
+  function relativeLuminance(hex) {
+    var m = /^#?([0-9a-f]{6})$/i.exec(String(hex).trim());
+    if (!m) return null;
+    var n = parseInt(m[1], 16);
+    var channels = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map(function (c) {
+      c = c / 255;
+      return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+    });
+    return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2];
+  }
+
+  function contrastRatio(a, b) {
+    var la = relativeLuminance(a);
+    var lb = relativeLuminance(b);
+    if (la === null || lb === null) return null;
+    return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
+  }
+
+  function resolveScheme(configured) {
+    if (configured === "dark" || configured === "light") return configured;
+    // "auto": follow the screen's own setting, which is what a wall driven
+    // by a kiosk box or a TV's browser will have been set to.
+    var prefersDark = window.matchMedia &&
+      window.matchMedia("(prefers-color-scheme: dark)").matches;
+    return prefersDark ? "dark" : "light";
+  }
+
   function applyBranding(state) {
     var root = document.documentElement;
     root.dataset.theme = state.theme_mode === "grayscale" ? "grayscale" : "color";
+
+    var scheme = resolveScheme(state.color_scheme);
+    root.dataset.scheme = scheme;
     root.style.setProperty("--primary", state.primary_color || "#e30000");
-    root.style.setProperty("--text", state.text_color || "#1a1a1a");
+
+    // A text colour picked against a light background becomes unreadable
+    // on a dark one (and vice versa). This is an unattended wall, so fall
+    // back to the scheme's own text colour rather than render something
+    // nobody can read. 4.5:1 is the WCAG AA threshold for body text.
+    var chosen = state.text_color;
+    var ratio = chosen ? contrastRatio(chosen, SCHEME_BG[scheme]) : null;
+    root.style.setProperty(
+      "--text",
+      ratio !== null && ratio >= 4.5 ? chosen : SCHEME_TEXT[scheme]
+    );
+
+    var cards = el("#cards");
+    if (cards) cards.dataset.columns = state.columns > 0 ? String(state.columns) : "auto";
 
     var logoImg = el("#logo-img");
     var bannerImg = el("#banner-img");
@@ -108,6 +156,36 @@
   function applyButtons(state) {
     var container = el("#buttons");
     container.innerHTML = "";
+
+    var position = state.button_position || "below";
+    var rowStyle = state.button_style || "solid";
+    container.dataset.position = position;
+    container.dataset.align = state.button_align || "left";
+    container.dataset.size = state.button_size || "medium";
+
+    // Position is a place in the document, not just styling, so the row is
+    // moved rather than duplicated.
+    var wall = el(".wall");
+    var overall = el("#overall");
+    var cards = el("#cards");
+    var banner = el("#banner");
+
+    // Lets the banner reflow to make room, and lets the timestamp and the
+    // admin icon step out of the way of a fixed footer bar, so nothing
+    // ends up sitting on top of anything else.
+    banner.dataset.hasButtons = position === "banner" ? "true" : "false";
+    document.documentElement.dataset.buttonPosition = position;
+
+    if (position === "banner") {
+      banner.appendChild(container);
+    } else if (position === "top") {
+      wall.insertBefore(container, overall);
+    } else if (position === "above") {
+      wall.insertBefore(container, cards);
+    } else {
+      wall.appendChild(container);
+    }
+
     (state.buttons || []).forEach(function (btn) {
       var a = document.createElement("a");
       a.className = "wall-button";
@@ -115,6 +193,10 @@
       a.textContent = btn.label;
       a.target = "_blank";
       a.rel = "noopener noreferrer";
+      // A button's own style/colour wins; blank means inherit the row, so
+      // only a deliberately different button needs configuring.
+      a.dataset.style = btn.style || rowStyle;
+      if (btn.color) a.style.setProperty("--primary", btn.color);
       container.appendChild(a);
     });
   }

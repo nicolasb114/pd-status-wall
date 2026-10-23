@@ -133,11 +133,32 @@
               <option value="grayscale">Black &amp; white</option>
             </select>
           </label>
+          <label>Light or dark
+            <select id="color-scheme">
+              <option value="light">Light</option>
+              <option value="dark">Dark</option>
+              <option value="auto">Follow the screen's setting</option>
+            </select>
+          </label>
+          <label>Columns
+            <select id="columns">
+              <option value="0">Fit as many as the screen allows</option>
+              <option value="1">1 column</option>
+              <option value="2">2 columns</option>
+              <option value="3">3 columns</option>
+              <option value="4">4 columns</option>
+            </select>
+            <span class="hint">Narrow screens use fewer columns regardless, so text stays readable.</span>
+          </label>
           <label>Primary / accent color
             <input type="color" id="primary-color" value="#e30000">
           </label>
           <label>Text color
             <input type="color" id="text-color" value="#1a1a1a">
+            <span class="hint warn" id="contrast-warning" hidden>
+              Too low contrast to read on this background - the wall will use
+              its default text color instead.
+            </span>
           </label>
           <label>Status banner alignment
             <select id="overall-align">
@@ -193,6 +214,44 @@
       <div class="card">
         <div id="buttons-list" class="buttons-list"></div>
         <button type="button" class="btn btn-ghost" id="add-button">+ Add button</button>
+
+        <div class="settings-grid">
+          <label>Position
+            <select id="button-position">
+              <option value="below">Below the services</option>
+              <option value="top">Between the banner and the status name</option>
+              <option value="above">Above the services</option>
+              <option value="banner">In the banner (right side)</option>
+              <option value="footer">Fixed footer bar</option>
+            </select>
+          </label>
+          <label>Alignment
+            <select id="button-align">
+              <option value="left">Left</option>
+              <option value="center">Center</option>
+              <option value="right">Right</option>
+            </select>
+          </label>
+          <label>Style
+            <select id="button-style">
+              <option value="solid">Solid</option>
+              <option value="outline">Outline</option>
+              <option value="subtle">Subtle</option>
+            </select>
+          </label>
+          <label>Size
+            <select id="button-size">
+              <option value="small">Small</option>
+              <option value="medium">Medium</option>
+              <option value="large">Large</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="buttons-preview-wrap">
+          <p class="muted">Live preview</p>
+          <div id="buttons-preview" class="buttons-preview"></div>
+        </div>
         <div class="form-actions">
           <button type="button" class="btn btn-primary" id="save-buttons">Save buttons</button>
           <span class="save-indicator" id="save-buttons-indicator"></span>

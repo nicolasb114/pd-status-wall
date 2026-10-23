@@ -20,9 +20,14 @@ const (
 )
 
 // Button is a configurable label+URL pair rendered on the display page.
+// Style and Color are per-button overrides; empty means "use whatever the
+// row is set to", so a wall with one odd-one-out button doesn't force
+// every button to be configured individually.
 type Button struct {
 	Label string `json:"label"`
 	URL   string `json:"url"`
+	Style string `json:"style,omitempty"` // "" | "solid" | "outline" | "subtle"
+	Color string `json:"color,omitempty"` // "" or #rrggbb
 }
 
 // ServiceGroup is an admin-defined heading that a set of business services
@@ -64,6 +69,8 @@ type Config struct {
 	BannerPath    string `json:"banner_path"`
 	BannerFitMode string `json:"banner_fit_mode"` // "contain" | "cover"
 	ThemeMode     string `json:"theme_mode"`      // "color" | "grayscale"
+	ColorScheme   string `json:"color_scheme"`    // "light" | "dark" | "auto" (follow the display's OS setting)
+	Columns       int    `json:"columns"`         // 0 = fit as many as the screen allows, else 1-4
 	PrimaryColor  string `json:"primary_color"`
 	TextColor     string `json:"text_color"`
 	OverallAlign  string `json:"overall_align"` // "left" | "center" - the top status banner's text/icon
@@ -71,7 +78,11 @@ type Config struct {
 	FontFamily    string `json:"font_family"`   // "system" | "rounded" | "serif" | "monospace"
 
 	// Buttons row
-	Buttons []Button `json:"buttons"`
+	Buttons        []Button `json:"buttons"`
+	ButtonPosition string   `json:"button_position"` // "below" | "above" | "top" | "banner" | "footer"
+	ButtonAlign    string   `json:"button_align"`    // "left" | "center" | "right"
+	ButtonStyle    string   `json:"button_style"`    // "solid" | "outline" | "subtle"
+	ButtonSize     string   `json:"button_size"`     // "small" | "medium" | "large"
 
 	// Network / security (runtime-editable; bind address and TLS are
 	// startup-only flags, see internal/config/flags.go)
@@ -87,12 +98,18 @@ func DefaultConfig() Config {
 		AdminUsername:       "admin",
 		BannerFitMode:       "contain",
 		ThemeMode:           "color",
+		ColorScheme:         "light",
+		Columns:             0,
 		PrimaryColor:        "#e30000",
 		TextColor:           "#1a1a1a",
 		OverallAlign:        "left",
 		OverallSize:         "medium",
 		FontFamily:          "system",
 		Buttons:             []Button{},
+		ButtonPosition:      "below",
+		ButtonAlign:         "left",
+		ButtonStyle:         "solid",
+		ButtonSize:          "medium",
 		ServiceGroups:       []ServiceGroup{},
 		CIDRAllowlist:       []string{},
 	}

@@ -78,6 +78,8 @@ func (s *Server) handleAdminPage(w http.ResponseWriter, r *http.Request) {
 type publicButton struct {
 	Label string `json:"label"`
 	URL   string `json:"url"`
+	Style string `json:"style,omitempty"`
+	Color string `json:"color,omitempty"`
 }
 
 // displayState is what /api/state returns: the current status snapshot plus
@@ -94,12 +96,18 @@ type displayState struct {
 	BannerURL      string         `json:"banner_url,omitempty"`
 	BannerFitMode  string         `json:"banner_fit_mode"`
 	ThemeMode      string         `json:"theme_mode"`
+	ColorScheme    string         `json:"color_scheme"`
+	Columns        int            `json:"columns"`
 	PrimaryColor   string         `json:"primary_color"`
 	TextColor      string         `json:"text_color"`
 	OverallAlign   string         `json:"overall_align"`
 	OverallSize    string         `json:"overall_size"`
 	FontFamily     string         `json:"font_family"`
 	Buttons        []publicButton `json:"buttons"`
+	ButtonPosition string         `json:"button_position"`
+	ButtonAlign    string         `json:"button_align"`
+	ButtonStyle    string         `json:"button_style"`
+	ButtonSize     string         `json:"button_size"`
 }
 
 func (s *Server) handleState(w http.ResponseWriter, r *http.Request) {
@@ -114,12 +122,18 @@ func (s *Server) handleState(w http.ResponseWriter, r *http.Request) {
 		Services:       snap.Services,
 		BannerFitMode:  cfg.BannerFitMode,
 		ThemeMode:      cfg.ThemeMode,
+		ColorScheme:    orDefault(cfg.ColorScheme, "light"),
+		Columns:        cfg.Columns,
 		PrimaryColor:   cfg.PrimaryColor,
 		TextColor:      cfg.TextColor,
 		OverallAlign:   orDefault(cfg.OverallAlign, "left"),
 		OverallSize:    orDefault(cfg.OverallSize, "medium"),
 		FontFamily:     orDefault(cfg.FontFamily, "system"),
 		Buttons:        []publicButton{},
+		ButtonPosition: orDefault(cfg.ButtonPosition, "below"),
+		ButtonAlign:    orDefault(cfg.ButtonAlign, "left"),
+		ButtonStyle:    orDefault(cfg.ButtonStyle, "solid"),
+		ButtonSize:     orDefault(cfg.ButtonSize, "medium"),
 	}
 	if state.Services == nil {
 		state.Services = []model.Node{}
@@ -131,7 +145,9 @@ func (s *Server) handleState(w http.ResponseWriter, r *http.Request) {
 		state.BannerURL = "/uploads/" + filepath.Base(cfg.BannerPath)
 	}
 	for _, b := range cfg.Buttons {
-		state.Buttons = append(state.Buttons, publicButton{Label: b.Label, URL: b.URL})
+		state.Buttons = append(state.Buttons, publicButton{
+			Label: b.Label, URL: b.URL, Style: b.Style, Color: b.Color,
+		})
 	}
 
 	w.Header().Set("Content-Type", "application/json")

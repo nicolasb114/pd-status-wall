@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -88,12 +89,18 @@ type adminConfigView struct {
 	BannerURL           string               `json:"banner_url,omitempty"`
 	BannerFitMode       string               `json:"banner_fit_mode"`
 	ThemeMode           string               `json:"theme_mode"`
+	ColorScheme         string               `json:"color_scheme"`
+	Columns             int                  `json:"columns"`
 	PrimaryColor        string               `json:"primary_color"`
 	TextColor           string               `json:"text_color"`
 	OverallAlign        string               `json:"overall_align"`
 	OverallSize         string               `json:"overall_size"`
 	FontFamily          string               `json:"font_family"`
 	Buttons             []model.Button       `json:"buttons"`
+	ButtonPosition      string               `json:"button_position"`
+	ButtonAlign         string               `json:"button_align"`
+	ButtonStyle         string               `json:"button_style"`
+	ButtonSize          string               `json:"button_size"`
 	CIDRAllowlist       []string             `json:"cidr_allowlist"`
 	LastPollOK          bool                 `json:"last_poll_ok"`
 	LastPollAt          string               `json:"last_poll_at,omitempty"`
@@ -137,12 +144,18 @@ func (s *Server) handleGetConfig(w http.ResponseWriter, r *http.Request) {
 		AdminUsername:       cfg.AdminUsername,
 		BannerFitMode:       cfg.BannerFitMode,
 		ThemeMode:           cfg.ThemeMode,
+		ColorScheme:         orDefault(cfg.ColorScheme, "light"),
+		Columns:             cfg.Columns,
 		PrimaryColor:        cfg.PrimaryColor,
 		TextColor:           cfg.TextColor,
 		OverallAlign:        orDefault(cfg.OverallAlign, "left"),
 		OverallSize:         orDefault(cfg.OverallSize, "medium"),
 		FontFamily:          orDefault(cfg.FontFamily, "system"),
 		Buttons:             cfg.Buttons,
+		ButtonPosition:      orDefault(cfg.ButtonPosition, "below"),
+		ButtonAlign:         orDefault(cfg.ButtonAlign, "left"),
+		ButtonStyle:         orDefault(cfg.ButtonStyle, "solid"),
+		ButtonSize:          orDefault(cfg.ButtonSize, "medium"),
 		CIDRAllowlist:       cfg.CIDRAllowlist,
 		LastPollOK:          snap.LastPollOK,
 		LastError:           snap.LastError,
@@ -306,6 +319,8 @@ func (s *Server) handleSaveBranding(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		BannerFitMode string `json:"banner_fit_mode"`
 		ThemeMode     string `json:"theme_mode"`
+		ColorScheme   string `json:"color_scheme"`
+		Columns       int    `json:"columns"`
 		PrimaryColor  string `json:"primary_color"`
 		TextColor     string `json:"text_color"`
 		OverallAlign  string `json:"overall_align"`
@@ -324,6 +339,14 @@ func (s *Server) handleSaveBranding(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "theme_mode must be 'color' or 'grayscale'")
 		return
 	}
+	if body.ColorScheme != "light" && body.ColorScheme != "dark" && body.ColorScheme != "auto" {
+		writeError(w, http.StatusBadRequest, "color_scheme must be 'light', 'dark' or 'auto'")
+		return
+	}
+	if body.Columns < 0 || body.Columns > 4 {
+		writeError(w, http.StatusBadRequest, "columns must be 0 (automatic) or 1-4")
+		return
+	}
 	if body.OverallAlign != "left" && body.OverallAlign != "center" {
 		writeError(w, http.StatusBadRequest, "overall_align must be 'left' or 'center'")
 		return
@@ -339,6 +362,8 @@ func (s *Server) handleSaveBranding(w http.ResponseWriter, r *http.Request) {
 	err := s.store.Update(func(cfg *model.Config) {
 		cfg.BannerFitMode = body.BannerFitMode
 		cfg.ThemeMode = body.ThemeMode
+		cfg.ColorScheme = body.ColorScheme
+		cfg.Columns = body.Columns
 		cfg.OverallAlign = body.OverallAlign
 		cfg.OverallSize = body.OverallSize
 		cfg.FontFamily = body.FontFamily
@@ -420,16 +445,65 @@ func (s *Server) handleUploadImage(w http.ResponseWriter, r *http.Request) {
 
 // --- Buttons ---
 
+var hexColor = regexp.MustCompile(`^#[0-9a-fA-F]{6}$`)
+
+var (
+	allowedButtonPositions = map[string]bool{
+		"below": true, "above": true, "top": true, "banner": true, "footer": true,
+	}
+	allowedButtonAligns = map[string]bool{"left": true, "center": true, "right": true}
+	allowedButtonStyles = map[string]bool{"solid": true, "outline": true, "subtle": true}
+	allowedButtonSizes  = map[string]bool{"small": true, "medium": true, "large": true}
+)
+
 func (s *Server) handleSaveButtons(w http.ResponseWriter, r *http.Request) {
 	var body struct {
-		Buttons []model.Button `json:"buttons"`
+		Buttons  []model.Button `json:"buttons"`
+		Position string         `json:"button_position"`
+		Align    string         `json:"button_align"`
+		Style    string         `json:"button_style"`
+		Size     string         `json:"button_size"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
+	for field, check := range map[string]struct {
+		value   string
+		allowed map[string]bool
+	}{
+		"button_position": {body.Position, allowedButtonPositions},
+		"button_align":    {body.Align, allowedButtonAligns},
+		"button_style":    {body.Style, allowedButtonStyles},
+		"button_size":     {body.Size, allowedButtonSizes},
+	} {
+		if !check.allowed[check.value] {
+			writeError(w, http.StatusBadRequest, field+" has an unsupported value: "+check.value)
+			return
+		}
+	}
+
+	// Per-button overrides. An empty value means "inherit the row", so
+	// only a deliberately different button carries its own settings.
+	for i, b := range body.Buttons {
+		if b.Style != "" && !allowedButtonStyles[b.Style] {
+			writeError(w, http.StatusBadRequest,
+				fmt.Sprintf("button %d: unsupported style %q", i+1, b.Style))
+			return
+		}
+		if b.Color != "" && !hexColor.MatchString(b.Color) {
+			writeError(w, http.StatusBadRequest,
+				fmt.Sprintf("button %d: color must be #rrggbb, got %q", i+1, b.Color))
+			return
+		}
+	}
+
 	err := s.store.Update(func(cfg *model.Config) {
 		cfg.Buttons = body.Buttons
+		cfg.ButtonPosition = body.Position
+		cfg.ButtonAlign = body.Align
+		cfg.ButtonStyle = body.Style
+		cfg.ButtonSize = body.Size
 	})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to save: "+err.Error())

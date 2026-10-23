@@ -100,6 +100,8 @@
 
     $("#banner-fit-mode").value = cfg.banner_fit_mode || "contain";
     $("#theme-mode").value = cfg.theme_mode || "color";
+    $("#color-scheme").value = cfg.color_scheme || "light";
+    $("#columns").value = String(cfg.columns || 0);
     $("#primary-color").value = cfg.primary_color || "#e30000";
     $("#text-color").value = cfg.text_color || "#1a1a1a";
     $("#overall-align").value = cfg.overall_align || "left";
@@ -108,6 +110,11 @@
     updatePreview();
 
     renderButtons(cfg.buttons || []);
+    $("#button-position").value = cfg.button_position || "below";
+    $("#button-align").value = cfg.button_align || "left";
+    $("#button-style").value = cfg.button_style || "solid";
+    $("#button-size").value = cfg.button_size || "medium";
+    updateButtonsPreview();
     renderCidrList(cfg.cidr_allowlist || []);
 
     if (cfg.pd_api_key_set) {
@@ -382,28 +389,68 @@
 
   // --- Branding ---
 
+  // Mirrors the display page's own fallback: a text colour that can't be
+  // read on the chosen background is replaced rather than shown, so the
+  // preview tells the truth about what the wall will render.
+  var SCHEME_BG = { light: "#f4f5f7", dark: "#101114" };
+  var SCHEME_TEXT = { light: "#1a1a1a", dark: "#eceef2" };
+  var SCHEME_CARD = { light: "#ffffff", dark: "#191b1f" };
+
+  function luminance(hex) {
+    var m = /^#?([0-9a-f]{6})$/i.exec(String(hex).trim());
+    if (!m) return null;
+    var n = parseInt(m[1], 16);
+    var ch = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map(function (c) {
+      c = c / 255;
+      return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+    });
+    return 0.2126 * ch[0] + 0.7152 * ch[1] + 0.0722 * ch[2];
+  }
+
+  function contrast(a, b) {
+    var la = luminance(a), lb = luminance(b);
+    if (la === null || lb === null) return null;
+    return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
+  }
+
+  function resolveScheme(configured) {
+    if (configured === "dark" || configured === "light") return configured;
+    return window.matchMedia &&
+      window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  }
+
   function updatePreview() {
     var primary = $("#primary-color").value;
-    var text = $("#text-color").value;
+    var chosenText = $("#text-color").value;
     var isGray = $("#theme-mode").value === "grayscale";
-    var preview = $("#preview-card");
-    preview.style.setProperty("--primary", primary);
-    preview.style.setProperty("--pv-text", text);
+    var scheme = resolveScheme($("#color-scheme").value);
+
+    var ratio = contrast(chosenText, SCHEME_BG[scheme]);
+    var readable = ratio !== null && ratio >= 4.5;
+    var text = readable ? chosenText : SCHEME_TEXT[scheme];
+
+    var warning = $("#contrast-warning");
+    warning.hidden = readable;
+
+    [$("#preview-card"), $("#preview-overall")].forEach(function (node) {
+      node.style.setProperty("--primary", primary);
+      node.style.setProperty("--pv-text", text);
+      node.style.background = SCHEME_CARD[scheme];
+      node.style.filter = isGray ? "grayscale(100%)" : "none";
+    });
+
     $("#preview-text").style.color = text;
-    $(".preview-dot", preview).style.background = primary;
+    $("#preview-overall-title").style.color = text;
+    $(".preview-dot", $("#preview-card")).style.background = primary;
     $("#preview-banner").style.filter = isGray ? "grayscale(100%)" : "none";
-    preview.style.filter = isGray ? "grayscale(100%)" : "none";
 
     var overallPreview = $("#preview-overall");
-    overallPreview.style.setProperty("--primary", primary);
-    overallPreview.style.setProperty("--pv-text", text);
     overallPreview.dataset.align = $("#overall-align").value;
     overallPreview.dataset.size = $("#overall-size").value;
     overallPreview.dataset.font = $("#font-family").value;
-    overallPreview.style.filter = isGray ? "grayscale(100%)" : "none";
   }
 
-  ["primary-color", "text-color", "theme-mode", "banner-fit-mode", "overall-align", "overall-size", "font-family"].forEach(function (id) {
+  ["primary-color", "text-color", "theme-mode", "color-scheme", "columns", "banner-fit-mode", "overall-align", "overall-size", "font-family"].forEach(function (id) {
     $("#" + id).addEventListener("input", updatePreview);
   });
 
@@ -436,6 +483,8 @@
       body: JSON.stringify({
         banner_fit_mode: $("#banner-fit-mode").value,
         theme_mode: $("#theme-mode").value,
+        color_scheme: $("#color-scheme").value,
+        columns: parseInt($("#columns").value, 10) || 0,
         primary_color: $("#primary-color").value,
         text_color: $("#text-color").value,
         overall_align: $("#overall-align").value,
@@ -452,27 +501,43 @@
   function renderButtons(buttons) {
     var list = $("#buttons-list");
     list.innerHTML = "";
-    buttons.forEach(function (btn) { list.appendChild(buttonRow(btn.label, btn.url)); });
+    buttons.forEach(function (btn) { list.appendChild(buttonRow(btn)); });
   }
 
-  function buttonRow(label, url) {
+  function buttonRow(btn) {
+    btn = btn || {};
     var row = document.createElement("div");
-    row.className = "reorder-row";
+    row.className = "reorder-row button-row";
     row.innerHTML =
-      '<input type="text" placeholder="Label" class="btn-label" style="max-width:180px">' +
+      '<input type="text" placeholder="Label" class="btn-label">' +
       '<input type="text" placeholder="https://..." class="btn-url">' +
+      '<select class="btn-style" title="Style">' +
+      '<option value="">Style: inherit</option>' +
+      '<option value="solid">Solid</option>' +
+      '<option value="outline">Outline</option>' +
+      '<option value="subtle">Subtle</option>' +
+      "</select>" +
+      '<label class="btn-color-wrap" title="Custom color">' +
+      '<input type="color" class="btn-color" value="#e30000">' +
+      '<input type="checkbox" class="btn-color-on"><span>Custom</span>' +
+      "</label>" +
       '<div class="reorder-controls">' +
       '<button type="button" class="btn btn-ghost btn-icon" data-move="up">&uarr;</button>' +
       '<button type="button" class="btn btn-ghost btn-icon" data-move="down">&darr;</button>' +
       '<button type="button" class="btn btn-danger btn-icon" data-remove="1">&times;</button>' +
       "</div>";
-    row.querySelector(".btn-label").value = label || "";
-    row.querySelector(".btn-url").value = url || "";
+    row.querySelector(".btn-label").value = btn.label || "";
+    row.querySelector(".btn-url").value = btn.url || "";
+    row.querySelector(".btn-style").value = btn.style || "";
+    if (btn.color) {
+      row.querySelector(".btn-color").value = btn.color;
+      row.querySelector(".btn-color-on").checked = true;
+    }
     return row;
   }
 
   $("#add-button").addEventListener("click", function () {
-    $("#buttons-list").appendChild(buttonRow("", ""));
+    $("#buttons-list").appendChild(buttonRow(null));
   });
 
   $("#buttons-list").addEventListener("click", function (e) {
@@ -482,12 +547,64 @@
     handleReorderClick(e);
   });
 
+  function updateButtonsPreview() {
+    var preview = $("#buttons-preview");
+    preview.dataset.align = $("#button-align").value;
+    preview.dataset.size = $("#button-size").value;
+    preview.style.setProperty("--primary", $("#primary-color").value);
+    preview.innerHTML = "";
+
+    var rows = $all("#buttons-list .reorder-row");
+    if (!rows.length) {
+      preview.innerHTML = "<span class=\"muted\">Add a button to see it here.</span>";
+      return;
+    }
+    var rowStyle = $("#button-style").value;
+    rows.forEach(function (row) {
+      var label = row.querySelector(".btn-label").value.trim();
+      if (!label) return;
+      var a = document.createElement("span");
+      a.className = "wall-button-preview";
+      a.textContent = label;
+      a.dataset.style = row.querySelector(".btn-style").value || rowStyle;
+      if (row.querySelector(".btn-color-on").checked) {
+        a.style.setProperty("--primary", row.querySelector(".btn-color").value);
+      }
+      preview.appendChild(a);
+    });
+  }
+
+  ["button-position", "button-align", "button-style", "button-size"].forEach(function (id) {
+    $("#" + id).addEventListener("input", updateButtonsPreview);
+  });
+  $("#buttons-list").addEventListener("input", updateButtonsPreview);
+  $("#buttons-list").addEventListener("change", updateButtonsPreview);
+  $("#add-button").addEventListener("click", updateButtonsPreview);
+
   $("#save-buttons").addEventListener("click", function () {
     var indicator = $("#save-buttons-indicator");
     var buttons = $all("#buttons-list .reorder-row").map(function (row) {
-      return { label: row.querySelector(".btn-label").value, url: row.querySelector(".btn-url").value };
+      var b = {
+        label: row.querySelector(".btn-label").value.trim(),
+        url: row.querySelector(".btn-url").value.trim(),
+      };
+      var style = row.querySelector(".btn-style").value;
+      if (style) b.style = style;
+      if (row.querySelector(".btn-color-on").checked) {
+        b.color = row.querySelector(".btn-color").value;
+      }
+      return b;
     }).filter(function (b) { return b.label && b.url; });
-    api("/admin/api/buttons", { method: "POST", body: JSON.stringify({ buttons: buttons }) })
+    api("/admin/api/buttons", {
+      method: "POST",
+      body: JSON.stringify({
+        buttons: buttons,
+        button_position: $("#button-position").value,
+        button_align: $("#button-align").value,
+        button_style: $("#button-style").value,
+        button_size: $("#button-size").value,
+      }),
+    })
       .then(function () { flash(indicator, true); })
       .catch(function (err) { flash(indicator, false, err.message); });
   });
