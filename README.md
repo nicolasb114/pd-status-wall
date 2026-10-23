@@ -251,8 +251,12 @@ go build -o pd-status-wall .
 Cross-compiling for another platform:
 
 ```bash
-GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o pd-status-wall-linux-amd64 .
+GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o pd-status-wall-linux-x86-64 .
 ```
+
+(`GOOS`/`GOARCH` are Go's own names - `darwin` is macOS, and `amd64` means
+64-bit Intel/AMD, not AMD only. The release assets are named after the
+machine instead, so nobody has to translate.)
 
 ## License
 
