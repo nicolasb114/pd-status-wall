@@ -88,6 +88,8 @@ type adminConfigView struct {
 	BannerURL           string               `json:"banner_url,omitempty"`
 	BannerFitMode       string               `json:"banner_fit_mode"`
 	ThemeMode           string               `json:"theme_mode"`
+	ColorScheme         string               `json:"color_scheme"`
+	Columns             int                  `json:"columns"`
 	PrimaryColor        string               `json:"primary_color"`
 	TextColor           string               `json:"text_color"`
 	OverallAlign        string               `json:"overall_align"`
@@ -137,6 +139,8 @@ func (s *Server) handleGetConfig(w http.ResponseWriter, r *http.Request) {
 		AdminUsername:       cfg.AdminUsername,
 		BannerFitMode:       cfg.BannerFitMode,
 		ThemeMode:           cfg.ThemeMode,
+		ColorScheme:         orDefault(cfg.ColorScheme, "light"),
+		Columns:             cfg.Columns,
 		PrimaryColor:        cfg.PrimaryColor,
 		TextColor:           cfg.TextColor,
 		OverallAlign:        orDefault(cfg.OverallAlign, "left"),
@@ -306,6 +310,8 @@ func (s *Server) handleSaveBranding(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		BannerFitMode string `json:"banner_fit_mode"`
 		ThemeMode     string `json:"theme_mode"`
+		ColorScheme   string `json:"color_scheme"`
+		Columns       int    `json:"columns"`
 		PrimaryColor  string `json:"primary_color"`
 		TextColor     string `json:"text_color"`
 		OverallAlign  string `json:"overall_align"`
@@ -324,6 +330,14 @@ func (s *Server) handleSaveBranding(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "theme_mode must be 'color' or 'grayscale'")
 		return
 	}
+	if body.ColorScheme != "light" && body.ColorScheme != "dark" && body.ColorScheme != "auto" {
+		writeError(w, http.StatusBadRequest, "color_scheme must be 'light', 'dark' or 'auto'")
+		return
+	}
+	if body.Columns < 0 || body.Columns > 4 {
+		writeError(w, http.StatusBadRequest, "columns must be 0 (automatic) or 1-4")
+		return
+	}
 	if body.OverallAlign != "left" && body.OverallAlign != "center" {
 		writeError(w, http.StatusBadRequest, "overall_align must be 'left' or 'center'")
 		return
@@ -339,6 +353,8 @@ func (s *Server) handleSaveBranding(w http.ResponseWriter, r *http.Request) {
 	err := s.store.Update(func(cfg *model.Config) {
 		cfg.BannerFitMode = body.BannerFitMode
 		cfg.ThemeMode = body.ThemeMode
+		cfg.ColorScheme = body.ColorScheme
+		cfg.Columns = body.Columns
 		cfg.OverallAlign = body.OverallAlign
 		cfg.OverallSize = body.OverallSize
 		cfg.FontFamily = body.FontFamily

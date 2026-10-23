@@ -57,11 +57,59 @@
     return nodeEl;
   }
 
+  // Scheme backgrounds, kept in step with the tokens in style.css. Used
+  // only to judge whether a configured text colour is readable on them.
+  var SCHEME_BG = { light: "#f4f5f7", dark: "#101114" };
+  var SCHEME_TEXT = { light: "#1a1a1a", dark: "#eceef2" };
+
+  function relativeLuminance(hex) {
+    var m = /^#?([0-9a-f]{6})$/i.exec(String(hex).trim());
+    if (!m) return null;
+    var n = parseInt(m[1], 16);
+    var channels = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map(function (c) {
+      c = c / 255;
+      return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+    });
+    return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2];
+  }
+
+  function contrastRatio(a, b) {
+    var la = relativeLuminance(a);
+    var lb = relativeLuminance(b);
+    if (la === null || lb === null) return null;
+    return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
+  }
+
+  function resolveScheme(configured) {
+    if (configured === "dark" || configured === "light") return configured;
+    // "auto": follow the screen's own setting, which is what a wall driven
+    // by a kiosk box or a TV's browser will have been set to.
+    var prefersDark = window.matchMedia &&
+      window.matchMedia("(prefers-color-scheme: dark)").matches;
+    return prefersDark ? "dark" : "light";
+  }
+
   function applyBranding(state) {
     var root = document.documentElement;
     root.dataset.theme = state.theme_mode === "grayscale" ? "grayscale" : "color";
+
+    var scheme = resolveScheme(state.color_scheme);
+    root.dataset.scheme = scheme;
     root.style.setProperty("--primary", state.primary_color || "#e30000");
-    root.style.setProperty("--text", state.text_color || "#1a1a1a");
+
+    // A text colour picked against a light background becomes unreadable
+    // on a dark one (and vice versa). This is an unattended wall, so fall
+    // back to the scheme's own text colour rather than render something
+    // nobody can read. 4.5:1 is the WCAG AA threshold for body text.
+    var chosen = state.text_color;
+    var ratio = chosen ? contrastRatio(chosen, SCHEME_BG[scheme]) : null;
+    root.style.setProperty(
+      "--text",
+      ratio !== null && ratio >= 4.5 ? chosen : SCHEME_TEXT[scheme]
+    );
+
+    var cards = el("#cards");
+    if (cards) cards.dataset.columns = state.columns > 0 ? String(state.columns) : "auto";
 
     var logoImg = el("#logo-img");
     var bannerImg = el("#banner-img");

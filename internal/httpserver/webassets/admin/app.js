@@ -100,6 +100,8 @@
 
     $("#banner-fit-mode").value = cfg.banner_fit_mode || "contain";
     $("#theme-mode").value = cfg.theme_mode || "color";
+    $("#color-scheme").value = cfg.color_scheme || "light";
+    $("#columns").value = String(cfg.columns || 0);
     $("#primary-color").value = cfg.primary_color || "#e30000";
     $("#text-color").value = cfg.text_color || "#1a1a1a";
     $("#overall-align").value = cfg.overall_align || "left";
@@ -382,28 +384,68 @@
 
   // --- Branding ---
 
+  // Mirrors the display page's own fallback: a text colour that can't be
+  // read on the chosen background is replaced rather than shown, so the
+  // preview tells the truth about what the wall will render.
+  var SCHEME_BG = { light: "#f4f5f7", dark: "#101114" };
+  var SCHEME_TEXT = { light: "#1a1a1a", dark: "#eceef2" };
+  var SCHEME_CARD = { light: "#ffffff", dark: "#191b1f" };
+
+  function luminance(hex) {
+    var m = /^#?([0-9a-f]{6})$/i.exec(String(hex).trim());
+    if (!m) return null;
+    var n = parseInt(m[1], 16);
+    var ch = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map(function (c) {
+      c = c / 255;
+      return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+    });
+    return 0.2126 * ch[0] + 0.7152 * ch[1] + 0.0722 * ch[2];
+  }
+
+  function contrast(a, b) {
+    var la = luminance(a), lb = luminance(b);
+    if (la === null || lb === null) return null;
+    return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
+  }
+
+  function resolveScheme(configured) {
+    if (configured === "dark" || configured === "light") return configured;
+    return window.matchMedia &&
+      window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  }
+
   function updatePreview() {
     var primary = $("#primary-color").value;
-    var text = $("#text-color").value;
+    var chosenText = $("#text-color").value;
     var isGray = $("#theme-mode").value === "grayscale";
-    var preview = $("#preview-card");
-    preview.style.setProperty("--primary", primary);
-    preview.style.setProperty("--pv-text", text);
+    var scheme = resolveScheme($("#color-scheme").value);
+
+    var ratio = contrast(chosenText, SCHEME_BG[scheme]);
+    var readable = ratio !== null && ratio >= 4.5;
+    var text = readable ? chosenText : SCHEME_TEXT[scheme];
+
+    var warning = $("#contrast-warning");
+    warning.hidden = readable;
+
+    [$("#preview-card"), $("#preview-overall")].forEach(function (node) {
+      node.style.setProperty("--primary", primary);
+      node.style.setProperty("--pv-text", text);
+      node.style.background = SCHEME_CARD[scheme];
+      node.style.filter = isGray ? "grayscale(100%)" : "none";
+    });
+
     $("#preview-text").style.color = text;
-    $(".preview-dot", preview).style.background = primary;
+    $("#preview-overall-title").style.color = text;
+    $(".preview-dot", $("#preview-card")).style.background = primary;
     $("#preview-banner").style.filter = isGray ? "grayscale(100%)" : "none";
-    preview.style.filter = isGray ? "grayscale(100%)" : "none";
 
     var overallPreview = $("#preview-overall");
-    overallPreview.style.setProperty("--primary", primary);
-    overallPreview.style.setProperty("--pv-text", text);
     overallPreview.dataset.align = $("#overall-align").value;
     overallPreview.dataset.size = $("#overall-size").value;
     overallPreview.dataset.font = $("#font-family").value;
-    overallPreview.style.filter = isGray ? "grayscale(100%)" : "none";
   }
 
-  ["primary-color", "text-color", "theme-mode", "banner-fit-mode", "overall-align", "overall-size", "font-family"].forEach(function (id) {
+  ["primary-color", "text-color", "theme-mode", "color-scheme", "columns", "banner-fit-mode", "overall-align", "overall-size", "font-family"].forEach(function (id) {
     $("#" + id).addEventListener("input", updatePreview);
   });
 
@@ -436,6 +478,8 @@
       body: JSON.stringify({
         banner_fit_mode: $("#banner-fit-mode").value,
         theme_mode: $("#theme-mode").value,
+        color_scheme: $("#color-scheme").value,
+        columns: parseInt($("#columns").value, 10) || 0,
         primary_color: $("#primary-color").value,
         text_color: $("#text-color").value,
         overall_align: $("#overall-align").value,

@@ -12,7 +12,35 @@
   --maint-color: #2f6fd1;
   --disabled-color: #7a7f8a;
 
+  --badge-bg: rgba(0, 0, 0, .05);
+  --banner-bg: #0e0e10;
+
   --transition: 220ms ease;
+}
+
+/* Dark scheme. The status hues are lifted rather than reused: the light
+   palette's versions are tuned against white and go muddy on a dark
+   ground, which matters here because colour is how the wall reads from
+   across a room. app.js sets data-scheme, resolving "auto" from the
+   display's own OS setting. */
+html[data-scheme="dark"] {
+  --text: #eceef2;
+  --bg: #101114;
+  --card-bg: #191b1f;
+  --border: #2c2f36;
+  --muted: #9ba1ac;
+
+  --op-color: #36c98a;
+  --warn-color: #e5b23c;
+  --crit-color: #f0564d;
+  --maint-color: #5a96e8;
+  --disabled-color: #8a909b;
+
+  /* A white wash reads as "raised" on dark, where a black one vanishes. */
+  --badge-bg: rgba(255, 255, 255, .08);
+  /* Kept darker than the page so the banner still reads as its own band
+     rather than blending into the background. */
+  --banner-bg: #08090b;
 }
 
 * { box-sizing: border-box; }
@@ -39,7 +67,7 @@ html[data-theme="grayscale"] {
   justify-content: center;
   height: 14vh;
   min-height: 90px;
-  background: #0e0e10;
+  background: var(--banner-bg);
   overflow: hidden;
 }
 .banner-img {
@@ -142,6 +170,24 @@ html[data-theme="grayscale"] {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
   gap: clamp(12px, 1.6vw, 24px);
+  align-items: start; /* a tall group shouldn't stretch its neighbours */
+}
+
+/* A fixed column count, set from the admin panel. minmax(0, 1fr) rather
+   than a bare 1fr so a long service name can't push a column wider than
+   its share and overflow the row. The media query keeps a wall layout
+   from surviving onto a phone or a narrow browser window, where three
+   columns would be unreadable - the count is a preference for the big
+   screen, not a promise to honour at every width. */
+.cards[data-columns="1"] { grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 700px) {
+  .cards[data-columns="2"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (min-width: 1000px) {
+  .cards[data-columns="3"] { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (min-width: 1300px) {
+  .cards[data-columns="4"] { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
 
 .node {
@@ -238,7 +284,7 @@ html[data-theme="grayscale"] {
   color: var(--muted);
   padding: 4px 10px;
   border-radius: 999px;
-  background: rgba(0,0,0,.05);
+  background: var(--badge-bg);
 }
 
 .node-children {
@@ -325,8 +371,11 @@ html[data-theme="grayscale"] {
   font-size: clamp(14px, 1.3vw, 18px);
   color: var(--muted);
 }
+/* Indent only - whether children show is the shared .open rule's job.
+   Setting display here would tie with ".node.open > .node-children" on
+   specificity and win on source order, pinning groups permanently open.
+   Groups still start expanded; app.js defaults them to open. */
 .node[data-kind="group"] > .node-children {
-  display: flex;
   padding-left: clamp(14px, 1.8vw, 22px);
   padding-right: clamp(14px, 1.8vw, 22px);
 }

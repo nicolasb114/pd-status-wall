@@ -64,6 +64,8 @@ type Config struct {
 	BannerPath    string `json:"banner_path"`
 	BannerFitMode string `json:"banner_fit_mode"` // "contain" | "cover"
 	ThemeMode     string `json:"theme_mode"`      // "color" | "grayscale"
+	ColorScheme   string `json:"color_scheme"`    // "light" | "dark" | "auto" (follow the display's OS setting)
+	Columns       int    `json:"columns"`         // 0 = fit as many as the screen allows, else 1-4
 	PrimaryColor  string `json:"primary_color"`
 	TextColor     string `json:"text_color"`
 	OverallAlign  string `json:"overall_align"` // "left" | "center" - the top status banner's text/icon
@@ -87,6 +89,8 @@ func DefaultConfig() Config {
 		AdminUsername:       "admin",
 		BannerFitMode:       "contain",
 		ThemeMode:           "color",
+		ColorScheme:         "light",
+		Columns:             0,
 		PrimaryColor:        "#e30000",
 		TextColor:           "#1a1a1a",
 		OverallAlign:        "left",

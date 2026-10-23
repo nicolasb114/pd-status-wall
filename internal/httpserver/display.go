@@ -94,6 +94,8 @@ type displayState struct {
 	BannerURL      string         `json:"banner_url,omitempty"`
 	BannerFitMode  string         `json:"banner_fit_mode"`
 	ThemeMode      string         `json:"theme_mode"`
+	ColorScheme    string         `json:"color_scheme"`
+	Columns        int            `json:"columns"`
 	PrimaryColor   string         `json:"primary_color"`
 	TextColor      string         `json:"text_color"`
 	OverallAlign   string         `json:"overall_align"`
@@ -114,6 +116,8 @@ func (s *Server) handleState(w http.ResponseWriter, r *http.Request) {
 		Services:       snap.Services,
 		BannerFitMode:  cfg.BannerFitMode,
 		ThemeMode:      cfg.ThemeMode,
+		ColorScheme:    orDefault(cfg.ColorScheme, "light"),
+		Columns:        cfg.Columns,
 		PrimaryColor:   cfg.PrimaryColor,
 		TextColor:      cfg.TextColor,
 		OverallAlign:   orDefault(cfg.OverallAlign, "left"),

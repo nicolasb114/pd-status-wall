@@ -133,11 +133,32 @@
               <option value="grayscale">Black &amp; white</option>
             </select>
           </label>
+          <label>Light or dark
+            <select id="color-scheme">
+              <option value="light">Light</option>
+              <option value="dark">Dark</option>
+              <option value="auto">Follow the screen's setting</option>
+            </select>
+          </label>
+          <label>Columns
+            <select id="columns">
+              <option value="0">Fit as many as the screen allows</option>
+              <option value="1">1 column</option>
+              <option value="2">2 columns</option>
+              <option value="3">3 columns</option>
+              <option value="4">4 columns</option>
+            </select>
+            <span class="hint">Narrow screens use fewer columns regardless, so text stays readable.</span>
+          </label>
           <label>Primary / accent color
             <input type="color" id="primary-color" value="#e30000">
           </label>
           <label>Text color
             <input type="color" id="text-color" value="#1a1a1a">
+            <span class="hint warn" id="contrast-warning" hidden>
+              Too low contrast to read on this background - the wall will use
+              its default text color instead.
+            </span>
           </label>
           <label>Status banner alignment
             <select id="overall-align">
