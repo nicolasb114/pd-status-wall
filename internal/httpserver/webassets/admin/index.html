@@ -214,6 +214,44 @@
       <div class="card">
         <div id="buttons-list" class="buttons-list"></div>
         <button type="button" class="btn btn-ghost" id="add-button">+ Add button</button>
+
+        <div class="settings-grid">
+          <label>Position
+            <select id="button-position">
+              <option value="below">Below the services</option>
+              <option value="top">Between the banner and the status name</option>
+              <option value="above">Above the services</option>
+              <option value="banner">In the banner (right side)</option>
+              <option value="footer">Fixed footer bar</option>
+            </select>
+          </label>
+          <label>Alignment
+            <select id="button-align">
+              <option value="left">Left</option>
+              <option value="center">Center</option>
+              <option value="right">Right</option>
+            </select>
+          </label>
+          <label>Style
+            <select id="button-style">
+              <option value="solid">Solid</option>
+              <option value="outline">Outline</option>
+              <option value="subtle">Subtle</option>
+            </select>
+          </label>
+          <label>Size
+            <select id="button-size">
+              <option value="small">Small</option>
+              <option value="medium">Medium</option>
+              <option value="large">Large</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="buttons-preview-wrap">
+          <p class="muted">Live preview</p>
+          <div id="buttons-preview" class="buttons-preview"></div>
+        </div>
         <div class="form-actions">
           <button type="button" class="btn btn-primary" id="save-buttons">Save buttons</button>
           <span class="save-indicator" id="save-buttons-indicator"></span>

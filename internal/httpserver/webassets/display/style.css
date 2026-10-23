@@ -14,6 +14,9 @@
 
   --badge-bg: rgba(0, 0, 0, .05);
   --banner-bg: #0e0e10;
+  --border-strong: #cfd4dc;
+  --row-hover: rgba(0, 0, 0, .025);
+  --card-shadow: 0 1px 2px rgba(16, 18, 24, .04), 0 1px 1px rgba(16, 18, 24, .03);
 
   --transition: 220ms ease;
 }
@@ -38,6 +41,11 @@ html[data-scheme="dark"] {
 
   /* A white wash reads as "raised" on dark, where a black one vanishes. */
   --badge-bg: rgba(255, 255, 255, .08);
+  --border-strong: #3d424b;
+  --row-hover: rgba(255, 255, 255, .035);
+  /* Shadows barely register on a dark ground; depth comes from the
+     surface being lighter than the page instead. */
+  --card-shadow: none;
   /* Kept darker than the page so the banner still reads as its own band
      rather than blending into the background. */
   --banner-bg: #08090b;
@@ -196,7 +204,10 @@ html[data-theme="grayscale"] {
   border-radius: 14px;
   overflow: hidden;
   grid-column: 1 / -1;
+  box-shadow: var(--card-shadow);
+  transition: box-shadow var(--transition), border-color var(--transition);
 }
+.cards > .node:hover { border-color: var(--border-strong); }
 .cards > .node { grid-column: span 1; }
 
 .node-row {
@@ -213,6 +224,8 @@ html[data-theme="grayscale"] {
   text-align: left;
 }
 .node-row:focus-visible { outline: 3px solid var(--primary); outline-offset: -3px; }
+.node-row { transition: background var(--transition); }
+.node:not(.leaf) > .node-row:hover { background: var(--row-hover); }
 
 .chevron {
   flex: 0 0 auto;
@@ -287,13 +300,28 @@ html[data-theme="grayscale"] {
   background: var(--badge-bg);
 }
 
+/* Expanding animates grid-template-rows 0fr -> 1fr. display:none can't be
+   transitioned, so the row track is collapsed instead and the inner
+   wrapper clips its own overflow. */
 .node-children {
-  display: none;
-  flex-direction: column;
-  padding: 0 clamp(14px, 1.8vw, 22px) clamp(10px, 1.4vw, 16px) calc(clamp(14px, 1.8vw, 22px) + 1.1em + 14px);
-  gap: 8px;
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows var(--transition);
 }
-.node.open > .node-children { display: flex; }
+.node.open > .node-children { grid-template-rows: 1fr; }
+
+.node-children-inner {
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0; /* without this the track won't actually collapse to 0 */
+}
+/* Padding lives on the inner wrapper: on the outer element it would keep
+   a collapsed node a dozen pixels tall instead of letting it close flat. */
+.node.open > .node-children > .node-children-inner {
+  padding: 0 clamp(14px, 1.8vw, 22px) clamp(10px, 1.4vw, 16px) calc(clamp(14px, 1.8vw, 22px) + 1.1em + 14px);
+}
 .node-children .node {
   border: 1px solid var(--border);
   border-radius: 10px;
@@ -301,24 +329,140 @@ html[data-theme="grayscale"] {
 .node-children .node-row { padding: 10px 14px; }
 .node-children .node-name { font-size: clamp(14px, 1.3vw, 18px); font-weight: 500; }
 
+@media (prefers-reduced-motion: reduce) {
+  .node-children { transition: none; }
+}
+
 .buttons {
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
   margin-top: clamp(16px, 2.5vw, 32px);
 }
+.buttons:empty { display: none; }
+
+.buttons[data-align="center"] { justify-content: center; }
+.buttons[data-align="right"] { justify-content: flex-end; }
+
+/* Positions above the cards supply their own bottom spacing instead of
+   the default top margin, so they don't double up on the gap. */
+.buttons[data-position="above"],
+.buttons[data-position="top"] {
+  margin-top: 0;
+  margin-bottom: clamp(16px, 2.5vw, 32px);
+}
+
+/* Inside the banner strip the row gets its own space rather than being
+   laid over the artwork: the banner becomes a row and the image is
+   allowed to shrink, so the two never overlap however wide the buttons
+   get. */
+.banner[data-has-buttons="true"] {
+  justify-content: space-between;
+  padding-left: clamp(16px, 2.5vw, 40px);
+  padding-right: clamp(16px, 2.5vw, 40px);
+  gap: clamp(12px, 2vw, 28px);
+}
+.banner[data-has-buttons="true"] .banner-img {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.banner[data-has-buttons="true"] .logo-img {
+  position: static;
+  transform: none;
+  flex: 0 0 auto;
+}
+.buttons[data-position="banner"] {
+  margin: 0;
+  flex: 0 0 auto;
+  justify-content: flex-end;
+  max-width: 50%;
+}
+
+/* A footer bar pinned to the viewport: the wall never scrolls, so this
+   stays put and reads as chrome rather than content. It clears the
+   timestamp and the admin icon, which share that edge. */
+.buttons[data-position="footer"] {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  margin: 0;
+  padding: 14px clamp(16px, 2.5vw, 40px);
+  background: var(--card-bg);
+  border-top: 1px solid var(--border);
+  z-index: 5;
+}
+/* The timestamp and the admin icon also live on that edge, so they move
+   above the bar rather than being buried under it. */
+html[data-button-position="footer"] .foot { bottom: 78px; }
+html[data-button-position="footer"] .admin-link { bottom: 82px; }
+/* And the wall itself gets room so the last card can still be read. */
+html[data-button-position="footer"] .wall { padding-bottom: 110px; }
+
 .wall-button {
   display: inline-block;
-  padding: 12px 22px;
   border-radius: 10px;
-  background: var(--primary);
-  color: #fff;
   text-decoration: none;
   font-weight: 600;
-  font-size: clamp(14px, 1.3vw, 18px);
-  transition: filter var(--transition);
+  line-height: 1.2;
+  border: 1.5px solid transparent;
+  transition: background var(--transition), color var(--transition),
+    border-color var(--transition), transform var(--transition);
 }
-.wall-button:hover { filter: brightness(1.08); }
+.wall-button:hover { transform: translateY(-1px); }
+.wall-button:active { transform: translateY(0); }
+.wall-button:focus-visible {
+  outline: 3px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* Sizes */
+.buttons[data-size="small"] .wall-button {
+  padding: 8px 16px;
+  font-size: clamp(12px, 1.05vw, 15px);
+}
+.buttons[data-size="medium"] .wall-button {
+  padding: 12px 22px;
+  font-size: clamp(14px, 1.3vw, 18px);
+}
+.buttons[data-size="large"] .wall-button {
+  padding: 16px 30px;
+  font-size: clamp(16px, 1.6vw, 22px);
+}
+
+/* Styles. Solid keeps white text because the accent is a brand colour
+   that may not contrast with the page; outline and subtle draw the
+   accent as text, which stays readable on either scheme. */
+/* Keyed off the button, not the row: app.js resolves each button's style
+   (its own, else the row's) onto the element, so one odd-one-out button
+   doesn't need every other button configured. --primary is likewise
+   overridden per button when it carries its own colour. */
+.wall-button[data-style="solid"] {
+  background: var(--primary);
+  color: #fff;
+}
+.wall-button[data-style="solid"]:hover { filter: brightness(1.08); }
+
+.wall-button[data-style="outline"] {
+  background: transparent;
+  color: var(--text);
+  border-color: var(--primary);
+}
+.wall-button[data-style="outline"]:hover {
+  background: var(--primary);
+  color: #fff;
+}
+
+.wall-button[data-style="subtle"] {
+  background: var(--badge-bg);
+  color: var(--text);
+}
+.wall-button[data-style="subtle"]:hover { border-color: var(--border-strong); }
+
+@media (prefers-reduced-motion: reduce) {
+  .wall-button { transition: none; }
+  .wall-button:hover, .wall-button:active { transform: none; }
+}
 
 .foot {
   position: fixed;
@@ -365,10 +509,15 @@ html[data-theme="grayscale"] {
    A group is a heading with its member services beneath it, so it reads as
    a section rather than as another service row. Members are always shown
    (the chevron only collapses supporting services, a level deeper). */
+/* A group reads as a section through case, tracking and colour - not
+   through a smaller size. Matching the service name's size is what keeps
+   a collapsed group card exactly as tall as a standalone service card
+   beside it in the same row. */
 .node[data-kind="group"] > .node-row .node-name {
   text-transform: uppercase;
-  letter-spacing: .04em;
-  font-size: clamp(14px, 1.3vw, 18px);
+  letter-spacing: .06em;
+  font-size: clamp(16px, 1.6vw, 22px);
+  font-weight: 700;
   color: var(--muted);
 }
 /* Indent only - whether children show is the shared .open rule's job.
@@ -379,7 +528,9 @@ html[data-theme="grayscale"] {
   padding-left: clamp(14px, 1.8vw, 22px);
   padding-right: clamp(14px, 1.8vw, 22px);
 }
-.node[data-kind="group"] > .node-row {
+/* Only tighten the gap to the children when they're actually showing;
+   applying it while closed made group cards shorter than service cards. */
+.node[data-kind="group"].open > .node-row {
   padding-bottom: 6px;
 }
 .node[data-kind="group"] > .node-children > .node {

@@ -38,7 +38,10 @@
         <span class="node-name"></span>
         <span class="status-label"></span>
       </button>
-      <div class="node-children"></div>
+      <!-- The wrapper exists so expanding can animate: the outer element
+           animates grid-template-rows 0fr -> 1fr, which needs a single
+           child that can be clipped. display:none can't be transitioned. -->
+      <div class="node-children"><div class="node-children-inner"></div></div>
     </div>
   </template>
 

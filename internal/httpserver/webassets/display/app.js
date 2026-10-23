@@ -28,7 +28,7 @@
     var dot = frag.querySelector(".status-dot");
     var name = frag.querySelector(".node-name");
     var label = frag.querySelector(".status-label");
-    var childrenEl = frag.querySelector(".node-children");
+    var childrenEl = frag.querySelector(".node-children-inner");
 
     nodeEl.dataset.id = node.id;
     nodeEl.dataset.kind = node.kind || "";
@@ -156,6 +156,36 @@
   function applyButtons(state) {
     var container = el("#buttons");
     container.innerHTML = "";
+
+    var position = state.button_position || "below";
+    var rowStyle = state.button_style || "solid";
+    container.dataset.position = position;
+    container.dataset.align = state.button_align || "left";
+    container.dataset.size = state.button_size || "medium";
+
+    // Position is a place in the document, not just styling, so the row is
+    // moved rather than duplicated.
+    var wall = el(".wall");
+    var overall = el("#overall");
+    var cards = el("#cards");
+    var banner = el("#banner");
+
+    // Lets the banner reflow to make room, and lets the timestamp and the
+    // admin icon step out of the way of a fixed footer bar, so nothing
+    // ends up sitting on top of anything else.
+    banner.dataset.hasButtons = position === "banner" ? "true" : "false";
+    document.documentElement.dataset.buttonPosition = position;
+
+    if (position === "banner") {
+      banner.appendChild(container);
+    } else if (position === "top") {
+      wall.insertBefore(container, overall);
+    } else if (position === "above") {
+      wall.insertBefore(container, cards);
+    } else {
+      wall.appendChild(container);
+    }
+
     (state.buttons || []).forEach(function (btn) {
       var a = document.createElement("a");
       a.className = "wall-button";
@@ -163,6 +193,10 @@
       a.textContent = btn.label;
       a.target = "_blank";
       a.rel = "noopener noreferrer";
+      // A button's own style/colour wins; blank means inherit the row, so
+      // only a deliberately different button needs configuring.
+      a.dataset.style = btn.style || rowStyle;
+      if (btn.color) a.style.setProperty("--primary", btn.color);
       container.appendChild(a);
     });
   }

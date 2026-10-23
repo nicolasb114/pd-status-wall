@@ -110,6 +110,11 @@
     updatePreview();
 
     renderButtons(cfg.buttons || []);
+    $("#button-position").value = cfg.button_position || "below";
+    $("#button-align").value = cfg.button_align || "left";
+    $("#button-style").value = cfg.button_style || "solid";
+    $("#button-size").value = cfg.button_size || "medium";
+    updateButtonsPreview();
     renderCidrList(cfg.cidr_allowlist || []);
 
     if (cfg.pd_api_key_set) {
@@ -496,27 +501,43 @@
   function renderButtons(buttons) {
     var list = $("#buttons-list");
     list.innerHTML = "";
-    buttons.forEach(function (btn) { list.appendChild(buttonRow(btn.label, btn.url)); });
+    buttons.forEach(function (btn) { list.appendChild(buttonRow(btn)); });
   }
 
-  function buttonRow(label, url) {
+  function buttonRow(btn) {
+    btn = btn || {};
     var row = document.createElement("div");
-    row.className = "reorder-row";
+    row.className = "reorder-row button-row";
     row.innerHTML =
-      '<input type="text" placeholder="Label" class="btn-label" style="max-width:180px">' +
+      '<input type="text" placeholder="Label" class="btn-label">' +
       '<input type="text" placeholder="https://..." class="btn-url">' +
+      '<select class="btn-style" title="Style">' +
+      '<option value="">Style: inherit</option>' +
+      '<option value="solid">Solid</option>' +
+      '<option value="outline">Outline</option>' +
+      '<option value="subtle">Subtle</option>' +
+      "</select>" +
+      '<label class="btn-color-wrap" title="Custom color">' +
+      '<input type="color" class="btn-color" value="#e30000">' +
+      '<input type="checkbox" class="btn-color-on"><span>Custom</span>' +
+      "</label>" +
       '<div class="reorder-controls">' +
       '<button type="button" class="btn btn-ghost btn-icon" data-move="up">&uarr;</button>' +
       '<button type="button" class="btn btn-ghost btn-icon" data-move="down">&darr;</button>' +
       '<button type="button" class="btn btn-danger btn-icon" data-remove="1">&times;</button>' +
       "</div>";
-    row.querySelector(".btn-label").value = label || "";
-    row.querySelector(".btn-url").value = url || "";
+    row.querySelector(".btn-label").value = btn.label || "";
+    row.querySelector(".btn-url").value = btn.url || "";
+    row.querySelector(".btn-style").value = btn.style || "";
+    if (btn.color) {
+      row.querySelector(".btn-color").value = btn.color;
+      row.querySelector(".btn-color-on").checked = true;
+    }
     return row;
   }
 
   $("#add-button").addEventListener("click", function () {
-    $("#buttons-list").appendChild(buttonRow("", ""));
+    $("#buttons-list").appendChild(buttonRow(null));
   });
 
   $("#buttons-list").addEventListener("click", function (e) {
@@ -526,12 +547,64 @@
     handleReorderClick(e);
   });
 
+  function updateButtonsPreview() {
+    var preview = $("#buttons-preview");
+    preview.dataset.align = $("#button-align").value;
+    preview.dataset.size = $("#button-size").value;
+    preview.style.setProperty("--primary", $("#primary-color").value);
+    preview.innerHTML = "";
+
+    var rows = $all("#buttons-list .reorder-row");
+    if (!rows.length) {
+      preview.innerHTML = "<span class=\"muted\">Add a button to see it here.</span>";
+      return;
+    }
+    var rowStyle = $("#button-style").value;
+    rows.forEach(function (row) {
+      var label = row.querySelector(".btn-label").value.trim();
+      if (!label) return;
+      var a = document.createElement("span");
+      a.className = "wall-button-preview";
+      a.textContent = label;
+      a.dataset.style = row.querySelector(".btn-style").value || rowStyle;
+      if (row.querySelector(".btn-color-on").checked) {
+        a.style.setProperty("--primary", row.querySelector(".btn-color").value);
+      }
+      preview.appendChild(a);
+    });
+  }
+
+  ["button-position", "button-align", "button-style", "button-size"].forEach(function (id) {
+    $("#" + id).addEventListener("input", updateButtonsPreview);
+  });
+  $("#buttons-list").addEventListener("input", updateButtonsPreview);
+  $("#buttons-list").addEventListener("change", updateButtonsPreview);
+  $("#add-button").addEventListener("click", updateButtonsPreview);
+
   $("#save-buttons").addEventListener("click", function () {
     var indicator = $("#save-buttons-indicator");
     var buttons = $all("#buttons-list .reorder-row").map(function (row) {
-      return { label: row.querySelector(".btn-label").value, url: row.querySelector(".btn-url").value };
+      var b = {
+        label: row.querySelector(".btn-label").value.trim(),
+        url: row.querySelector(".btn-url").value.trim(),
+      };
+      var style = row.querySelector(".btn-style").value;
+      if (style) b.style = style;
+      if (row.querySelector(".btn-color-on").checked) {
+        b.color = row.querySelector(".btn-color").value;
+      }
+      return b;
     }).filter(function (b) { return b.label && b.url; });
-    api("/admin/api/buttons", { method: "POST", body: JSON.stringify({ buttons: buttons }) })
+    api("/admin/api/buttons", {
+      method: "POST",
+      body: JSON.stringify({
+        buttons: buttons,
+        button_position: $("#button-position").value,
+        button_align: $("#button-align").value,
+        button_style: $("#button-style").value,
+        button_size: $("#button-size").value,
+      }),
+    })
       .then(function () { flash(indicator, true); })
       .catch(function (err) { flash(indicator, false, err.message); });
   });
