@@ -395,7 +395,7 @@ html[data-theme="grayscale"] {
 /* The timestamp and the admin icon also live on that edge, so they move
    above the bar rather than being buried under it. */
 html[data-button-position="footer"] .foot { bottom: 78px; }
-html[data-button-position="footer"] .admin-link { bottom: 82px; }
+html[data-button-position="footer"] .corner-actions { bottom: 82px; }
 /* And the wall itself gets room so the last card can still be read. */
 html[data-button-position="footer"] .wall { padding-bottom: 110px; }
 
@@ -477,34 +477,53 @@ html[data-button-position="footer"] .wall { padding-bottom: 110px; }
 }
 .foot:empty { display: none; }
 
-/* Admin entry point: a small, faded corner icon rather than a visible
-   banner/button-row element, so it doesn't compete for attention on a
-   video wall. Brightens on hover/focus for whoever's actually at a
-   keyboard in front of it. */
-.admin-link {
+/* Corner controls: full screen and the admin panel. Faded so they don't
+   compete with the wall from a distance, and brighter on hover or focus
+   for whoever is actually standing at the keyboard. */
+.corner-actions {
   position: fixed;
   right: 14px;
   bottom: 14px;
+  display: flex;
+  gap: 8px;
+  z-index: 6;
+}
+.corner-btn {
   width: 34px;
   height: 34px;
   display: flex;
   align-items: center;
   justify-content: center;
+  border: none;
   border-radius: 50%;
-  background: rgba(0, 0, 0, 0.06);
+  background: var(--badge-bg);
   color: var(--muted);
   font-size: 18px;
+  line-height: 1;
   text-decoration: none;
+  cursor: pointer;
   opacity: 0.35;
   transition: opacity var(--transition), background var(--transition);
 }
-.admin-link:hover,
-.admin-link:focus-visible {
+.corner-btn:hover,
+.corner-btn:focus-visible {
   opacity: 1;
-  background: rgba(0, 0, 0, 0.1);
+  background: var(--border);
   outline: none;
 }
+.corner-btn svg { width: 18px; height: 18px; display: block; }
 
+/* One button, two icons: which one shows depends on the current state,
+   set on <html> by app.js from the fullscreenchange event - so it stays
+   correct when the user leaves full screen with Esc or F11 rather than
+   by clicking. */
+.icon-exit { display: none; }
+html[data-fullscreen="true"] .icon-enter { display: none; }
+html[data-fullscreen="true"] .icon-exit { display: block; }
+
+@media (prefers-reduced-motion: reduce) {
+  .corner-btn { transition: none; }
+}
 /* --- Groups ---
    A group is a heading with its member services beneath it, so it reads as
    a section rather than as another service row. Members are always shown

@@ -28,7 +28,22 @@
 
   <footer class="foot" id="updated-at"></footer>
 
-  <a href="/admin" class="admin-link" title="Admin settings" aria-label="Admin settings">&#9881;</a>
+  <div class="corner-actions">
+    <button type="button" id="fullscreen-btn" class="corner-btn"
+            title="Full screen" aria-label="Enter full screen">
+      <svg viewBox="0 0 24 24" aria-hidden="true" class="icon-enter">
+        <path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"
+              fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <svg viewBox="0 0 24 24" aria-hidden="true" class="icon-exit">
+        <path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"
+              fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </button>
+    <a href="/admin" class="corner-btn" title="Admin settings" aria-label="Admin settings">&#9881;</a>
+  </div>
 
   <template id="tpl-node">
     <div class="node">
