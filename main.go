@@ -8,12 +8,17 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"os"
+	"os/exec"
 	"os/signal"
+	"runtime"
 	"runtime/debug"
+	"strings"
 	"syscall"
 	"time"
 
@@ -88,6 +93,22 @@ func main() {
 	tlsKeyFile := os.Getenv("TLS_KEY_FILE")
 	tlsEnabled := tlsCertFile != "" && tlsKeyFile != ""
 
+	// Claim the port before anything else. Generating a password first and
+	// failing to bind afterwards prints credentials for a process that
+	// never serves, and leaves behind a data directory nobody can use -
+	// easy to miss, because the failure is one line under a large banner.
+	listener, err := net.Listen("tcp", listenAddr)
+	if err != nil {
+		if errors.Is(err, syscall.EADDRINUSE) {
+			log.Fatalf("cannot start: %s is already in use.\n"+
+				"Something else is on that port - very likely another copy of this app.\n"+
+				"Stop it, or pick another port:  LISTEN_ADDR=127.0.0.1:8090 pd-status-wall",
+				listenAddr)
+		}
+		log.Fatalf("cannot listen on %s: %v", listenAddr, err)
+	}
+	defer listener.Close()
+
 	s, err := store.Open(dataDir)
 	if err != nil {
 		log.Fatalf("failed to open config store: %v", err)
@@ -123,19 +144,26 @@ func main() {
 		IdleTimeout:  60 * time.Second,
 	}
 
+	// Serving on the listener claimed above, so "listening on" is only ever
+	// printed once the port is genuinely held.
+	url := displayURL(listenAddr, tlsEnabled)
+	log.Printf("pd-status-wall listening on %s", url)
+	log.Printf("  display: %s", url)
+	log.Printf("  admin:   %s/admin", url)
+
 	go func() {
 		var err error
 		if tlsEnabled {
-			log.Printf("pd-status-wall listening on https://%s", listenAddr)
-			err = httpServer.ListenAndServeTLS(tlsCertFile, tlsKeyFile)
+			err = httpServer.ServeTLS(listener, tlsCertFile, tlsKeyFile)
 		} else {
-			log.Printf("pd-status-wall listening on http://%s", listenAddr)
-			err = httpServer.ListenAndServe()
+			err = httpServer.Serve(listener)
 		}
 		if err != nil && err != http.ErrServerClosed {
 			log.Fatalf("server error: %v", err)
 		}
 	}()
+
+	openBrowser(url)
 
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
@@ -180,4 +208,65 @@ func resetAdminPassword(s *store.Store) error {
 	log.Printf(" Password: %s", password)
 	log.Printf("==============================================================")
 	return nil
+}
+
+// displayURL turns a bind address into something a browser can open.
+// A wildcard bind (0.0.0.0 / ::) isn't a reachable address, so it becomes
+// localhost.
+func displayURL(listenAddr string, tls bool) string {
+	scheme := "http"
+	if tls {
+		scheme = "https"
+	}
+	host, port, err := net.SplitHostPort(listenAddr)
+	if err != nil {
+		return scheme + "://" + listenAddr
+	}
+	switch host {
+	case "", "0.0.0.0", "::", "[::]":
+		host = "localhost"
+	}
+	return scheme + "://" + net.JoinHostPort(host, port)
+}
+
+// openBrowser opens the display once the server is up, which is what you
+// want on a laptop and emphatically not what you want on a server.
+//
+// It stays quiet when there is nothing to open onto: under systemd, over
+// SSH, or on a Linux box with no graphical session. OPEN_BROWSER=false
+// disables it outright; OPEN_BROWSER=true forces it past these checks.
+func openBrowser(url string) {
+	switch strings.ToLower(os.Getenv("OPEN_BROWSER")) {
+	case "false", "0", "no":
+		return
+	case "true", "1", "yes":
+	default:
+		if os.Getenv("INVOCATION_ID") != "" { // started by systemd
+			return
+		}
+		if os.Getenv("SSH_CONNECTION") != "" { // remote shell, no local screen
+			return
+		}
+		if runtime.GOOS == "linux" &&
+			os.Getenv("DISPLAY") == "" && os.Getenv("WAYLAND_DISPLAY") == "" {
+			return // headless
+		}
+	}
+
+	var cmd *exec.Cmd
+	switch runtime.GOOS {
+	case "darwin":
+		cmd = exec.Command("open", url)
+	case "windows":
+		cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", url)
+	default:
+		cmd = exec.Command("xdg-open", url)
+	}
+	// Best effort: failing to open a browser is never a reason to stop
+	// serving, so the error is reported and otherwise ignored.
+	if err := cmd.Start(); err != nil {
+		log.Printf("could not open a browser automatically (%v) - open %s yourself", err, url)
+		return
+	}
+	go func() { _ = cmd.Wait() }() // don't leave a zombie behind
 }

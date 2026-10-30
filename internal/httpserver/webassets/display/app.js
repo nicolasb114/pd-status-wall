@@ -238,6 +238,44 @@
       });
   }
 
+  // --- Full screen ---
+  //
+  // The icon follows the fullscreenchange event rather than the click, so
+  // it stays correct when the user exits with Esc or F11 instead of the
+  // button. Safari still needs the webkit-prefixed calls.
+  var fsBtn = el("#fullscreen-btn");
+
+  function fullscreenElement() {
+    return document.fullscreenElement || document.webkitFullscreenElement || null;
+  }
+
+  function syncFullscreenState() {
+    var on = !!fullscreenElement();
+    document.documentElement.dataset.fullscreen = on ? "true" : "false";
+    if (fsBtn) {
+      fsBtn.title = on ? "Exit full screen" : "Full screen";
+      fsBtn.setAttribute("aria-label", fsBtn.title);
+    }
+  }
+
+  if (fsBtn) {
+    fsBtn.addEventListener("click", function () {
+      var el2 = document.documentElement;
+      if (fullscreenElement()) {
+        (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+      } else {
+        var req = el2.requestFullscreen || el2.webkitRequestFullscreen;
+        // Rejected when the browser blocks it (kiosk policy, iframe); the
+        // page keeps working either way.
+        var p = req && req.call(el2);
+        if (p && p.catch) p.catch(function () { syncFullscreenState(); });
+      }
+    });
+    document.addEventListener("fullscreenchange", syncFullscreenState);
+    document.addEventListener("webkitfullscreenchange", syncFullscreenState);
+    syncFullscreenState();
+  }
+
   refresh();
   setInterval(refresh, POLL_MS);
 })();
