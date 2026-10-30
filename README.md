@@ -159,6 +159,24 @@ above, with the same two fixes.
 Silicon; "Processor: Intel…" means Intel. From a terminal, `uname -m`
 prints `arm64` or `x86_64`.
 
+### Day to day
+
+The macOS and Linux downloads include a launcher next to the binary —
+**`Start Status Wall.command`** on macOS, **`start.sh`** on Linux.
+Double-click it (macOS) or run it (Linux) and the app starts with its
+settings pinned to that folder.
+
+That pinning is the point. By default the app keeps its configuration in
+`./data` relative to wherever it was launched from, and a Finder
+double-click runs from your home folder — so launching the binary
+directly finds no settings and generates a new admin password every time.
+The launcher removes that trap, and moving the folder moves your whole
+setup with it.
+
+Windows needs no launcher: Explorer already runs an `.exe` from its own
+folder, so `data` lands beside it. Keep the `.exe` somewhere permanent
+rather than in Downloads.
+
 ## First run
 
 On first start the app generates an admin password, prints it once, and
