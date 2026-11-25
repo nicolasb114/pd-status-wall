@@ -62,10 +62,23 @@ jobs:
           # bit - a bare binary downloaded over HTTP arrives without it and
           # won't run until the user remembers chmod +x. Windows has no
           # execute bit, so the .exe ships as-is and stays one click.
+          #
+          # Those two also get a launcher, which pins DATA_DIR next to
+          # itself. Without it a Finder double-click runs from the user's
+          # home folder, finds no settings and mints a new admin password
+          # each time. Windows needs no launcher: Explorer already runs an
+          # .exe from its own folder, so its data lands beside it.
           if [ "${{ matrix.goos }}" = "windows" ]; then
             cp "build/${bin}" "dist/${{ matrix.asset }}"
           else
-            tar -czf "dist/${{ matrix.asset }}.tar.gz" -C build "${bin}"
+            if [ "${{ matrix.goos }}" = "darwin" ]; then
+              cp scripts/start.command "build/Start Status Wall.command"
+              chmod +x "build/Start Status Wall.command"
+            else
+              cp scripts/start.sh build/start.sh
+              chmod +x build/start.sh
+            fi
+            tar -czf "dist/${{ matrix.asset }}.tar.gz" -C build .
           fi
           ls -l dist
 
